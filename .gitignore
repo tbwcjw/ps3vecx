@@ -1,3 +1,9 @@
-*.o
+
 vecx
 tags
+.vscode
+*.elf
+*.self
+*.pkg
+*.zip
+build
