@@ -13,6 +13,7 @@ endif
 TITLE		    := vecx
 APPID		    := VECX00001
 CONTENTID	    := UP0001-$(APPID)_00-0000000000000000
+PKGFILES	    := $(CURDIR)/pkgfiles
 #ICON0           := $(CURDIR)/pkgfiles/ICON0.PNG
 #ICON1          := $(CURDIR)/ICON1.PAM
 #PIC1           := $(CURDIR)/PIC1.PNG
@@ -38,8 +39,8 @@ SCETOOL_FLAGS	+=	--self-cap-flags 0000000000000000000000000000000000000000000000
 TARGET		:=	vecx
 BUILD		:=	build
 SOURCES		:=	source
-DATA		:=
-SHADERS		:=
+DATA		:=  
+SHADERS		:=  shaders
 INCLUDES	:=	include source
 PKGFILES	:=	$(CURDIR)/pkgfiles
 
@@ -54,8 +55,8 @@ LIBS		:=	-lSDL  -lm -lrsx -lgcm_sys -lio -laudio -lsysutil -lsysfs -lrt -llv2
 # -fgnu89-inline: vecx uses old-style __inline functions that otherwise give
 #                 "undefined reference" errors with modern gcc
 #---------------------------------------------------------------------------------
-#optional: -DDEBUG -DDEBUG_ADDR=\"10.0.0.152\" -DDEBUG_PORT=\"18194\" -DPS3LOADX 
-CFLAGS		=	-O2 -Wall -mcpu=cell -fgnu89-inline $(MACHDEP) $(INCLUDE) $(DFLAGS) -DVERSION=\"$(VERSION)\" 
+#optional: -DDEBUG -DDEBUG_ADDR=\"10.0.0.152\" -DDEBUG_PORT=\"18194\" 
+CFLAGS		=	-O2 -Wall -mcpu=cell -fgnu89-inline $(MACHDEP) $(INCLUDE) $(DFLAGS) -DVERSION=\"$(VERSION)\" -DPS3LOADX
 CXXFLAGS	=	$(CFLAGS)
 
 LDFLAGS		=	$(MACHDEP) -Wl,-Map,$(notdir $@).map
@@ -78,7 +79,8 @@ export VERSION := $(strip $(shell xmllint --xpath 'normalize-space(/sfo/value[@n
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
-					$(foreach dir,$(DATA),$(CURDIR)/$(dir))
+					$(foreach dir,$(DATA),$(CURDIR)/$(dir)) \
+					$(foreach dir,$(SHADERS),$(CURDIR)/$(dir))
 
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
@@ -92,6 +94,11 @@ CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.S)))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.bin)))
+VCGFILES	:=	$(foreach dir,$(SHADERS),$(notdir $(wildcard $(dir)/*.vcg)))
+FCGFILES	:=	$(foreach dir,$(SHADERS),$(notdir $(wildcard $(dir)/*.fcg)))
+
+VPOFILES	:=	$(VCGFILES:.vcg=.vpo)
+FPOFILES	:=	$(FCGFILES:.fcg=.fpo)
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -103,6 +110,8 @@ else
 endif
 
 export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
+					$(addsuffix .o,$(VPOFILES)) \
+					$(addsuffix .o,$(FPOFILES)) \
 					$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) \
 					$(sFILES:.s=.o) $(SFILES:.S=.o)
 
@@ -139,7 +148,8 @@ run:
 	ps3load $(OUTPUT).self
 
 #---------------------------------------------------------------------------------
-pkg:	$(BUILD) $(OUTPUT).pkg
+pkg:	
+	$(BUILD) $(OUTPUT).pkg
 
 #---------------------------------------------------------------------------------
 release: clean pkg
@@ -169,7 +179,17 @@ $(OUTPUT).elf:	$(OFILES)
 	@echo $(notdir $<)
 	@$(bin2o)
 
--include $(DEPENDS)
+#---------------------------------------------------------------------------------
+%.vpo.o	:	%.vpo
+#---------------------------------------------------------------------------------
+	@echo $(notdir $<)
+	@$(bin2o)
+
+#---------------------------------------------------------------------------------
+%.fpo.o	:	%.fpo
+#---------------------------------------------------------------------------------
+	@echo $(notdir $<)
+	@$(bin2o)
 
 #---------------------------------------------------------------------------------
 endif

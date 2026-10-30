@@ -19,7 +19,6 @@
 ***************************************************************************/
 
 #define MAX_OUTPUT 0x0fff
-//#define MAX_OUTPUT 0x7f
 
 #define STEP3 1
 #define STEP2 length
@@ -203,8 +202,7 @@ void e8910_write(int r, int v)
 	}
 }
 
-static void
-e8910_callback(void *userdata, Uint8 *stream, int length)
+void e8910_callback(void *userdata, Uint8 *stream, int length)
 {
 	(void) userdata;
 
@@ -495,10 +493,6 @@ extern unsigned snd_regs[16];
 void
 e8910_init_sound()
 {
-	// SDL audio stuff
-	SDL_AudioSpec reqSpec;
-	SDL_AudioSpec givenSpec;
-
 	PSG.Regs = snd_regs;
 	PSG.RNG  = 1;
 	PSG.OutputA = 0;
@@ -507,31 +501,10 @@ e8910_init_sound()
 	PSG.OutputN = 0xff;
 	e8910_build_mixer_table();
 	PSG.ready = 1;
-
-	// set up audio buffering
-	reqSpec.freq = SOUND_FREQ;            // Audio frequency in samples per second
-	reqSpec.format = AUDIO_U8;          // Audio data format
-	reqSpec.channels = 1;            // Number of channels: 1 mono, 2 stereo
-	reqSpec.samples = SOUND_SAMPLE;            // Audio buffer size in samples
-	reqSpec.callback = e8910_callback;      // Callback function for filling the audio buffer
-	reqSpec.userdata = NULL;
-	/* Open the audio device */
-	if ( SDL_OpenAudio(&reqSpec, &givenSpec) < 0 ){
-		fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
-		exit(-1);
-	}
-
-# if 0
-	fprintf(stdout, "samples:%d format=%x freq=%d\n", givenSpec.samples, givenSpec.format, givenSpec.freq);
-# endif
-
-	// Start playing audio
-	SDL_PauseAudio(0);
 }
 
 void
 e8910_done_sound()
 {
-	SDL_CloseAudio();
+	PSG.ready = 0;
 }
-
