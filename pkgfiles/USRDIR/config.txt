@@ -1,0 +1,8 @@
+cart=boot.vec
+rom=rom.dat
+overlay=overlay.png
+alpha=128
+thickness=2
+rotation=0
+sync=1
+gain=1.0

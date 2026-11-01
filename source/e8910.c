@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <SDL/SDL.h>
-
+#include <debug.h>
 #define SOUND_FREQ   22050
 #define SOUND_SAMPLE  1024
 
@@ -202,12 +202,12 @@ void e8910_write(int r, int v)
 	}
 }
 
-void e8910_callback(void *userdata, Uint8 *stream, int length)
+void e8910_callback(void *userdata, int16_t *stream, int length)
 {
 	(void) userdata;
 
 	int outn;
-	Uint8* buf1 = stream;
+	int16_t *buf1 = stream;
 
 	/* hack to prevent us from hanging when starting filtered outputs */
 	if (!PSG.ready)
@@ -216,7 +216,7 @@ void e8910_callback(void *userdata, Uint8 *stream, int length)
 		return;
 	}
 
-  length = length * 2;
+	length = length * 2;
 
 	/* The 8910 has three outputs, each output is the mix of one of the three */
 	/* tone generators and of the (single) noise generator. The two are mixed */
@@ -270,9 +270,10 @@ void e8910_callback(void *userdata, Uint8 *stream, int length)
 	outn = (PSG.OutputN | PSG.Regs[AY_ENABLE]);
 
 	/* buffering loop */
+	unsigned vol;
 	while (length > 0)
 	{
-        unsigned vol;
+        
     int left  = 2;
 		/* vola, volb and volc keep track of how long each square wave stays */
 		/* in the 1 position during the sample period. */
@@ -463,7 +464,14 @@ void e8910_callback(void *userdata, Uint8 *stream, int length)
 		}
 
     vol = (vola * PSG.VolA + volb * PSG.VolB + volc * PSG.VolC) / (3 * STEP);
-    if (--length & 1) *(buf1++) = vol >> 8;
+   	if (--length & 1)
+		{
+			/* two accumulated, so divide by 2 * 3 * STEP */
+			vol = (vola * PSG.VolA + volb * PSG.VolB + volc * PSG.VolC) / (2 * 3 * STEP);
+			int v = ((int)vol - 2048) * 8;
+			*(buf1++) = (int16_t)v;
+			vola = volb = volc = 0;   /* reset only after an output sample is written */
+		}
 	}
 }
 

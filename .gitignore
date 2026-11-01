@@ -7,3 +7,5 @@ tags
 *.pkg
 *.zip
 build
+boot/tools/
+.python-version

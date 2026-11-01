@@ -7,19 +7,12 @@
 #include <sys/thread.h>
 
 #include "e8910.h"
+#include "vecx.h"
 
-#define PSG_RATE 22050
-#define PSG_MAX_SAMPLES 1024
+/* AY tone counters run at clock/8; e8910 advances four counter ticks per sample. */
+#define PSG_RATE 48000
+#define PSG_MAX_SAMPLES 4096
 
-static void psg_pull(int16_t *dst, int n)
-{
-    Uint8 samples[PSG_MAX_SAMPLES];
-    e8910_callback(NULL, samples, n);
-
-    for (int i = 0; i < n; i++) {
-        dst[i] = (int16_t)(((int)samples[i] - 8) * 4096);
-    }
-}
 
 static void psg_init(void)
 {
@@ -31,11 +24,12 @@ static void psg_done(void)
     e8910_done_sound();
 }
 
+
 #define OUT_RATE    48000.0
 #define NUM_BLOCKS  AUDIO_BLOCK_8
-#define BLOCK_SAMPS AUDIO_BLOCK_SAMPLES                 /* 256 */
+#define BLOCK_SAMPS 256                 /* 256 */
 #define BLOCK_FLTS  (BLOCK_SAMPS * 2)                   /* stereo */
-#define GAIN        0.5f
+static float gain = 1.0f;
 
 static u32 port_num;
 static float *port_data;
@@ -50,6 +44,17 @@ static int snd_ok;
 static int16_t fifo[2048];
 static int fcnt;
 static double phase;
+
+void audio_set_gain(float g)
+{
+    if (g < 0.0f)
+        g = 0.0f;
+
+    if (g > 2.0f)
+        g = 2.0f;
+
+    gain = g;
+}
 
 void audio_pause(void)
 {
@@ -74,14 +79,14 @@ static void fill_block(float *out)
     int need = (int)(phase + step * BLOCK_SAMPS) + 2;
 
     if (fcnt < need) {
-        psg_pull(fifo + fcnt, need - fcnt);
+        e8910_callback(NULL, fifo + fcnt,need - fcnt);
         fcnt = need;
     }
     for (int i = 0; i < BLOCK_SAMPS; i++) {
         int k = (int)phase;
         double fr = phase - k;
         float s = (float)((1.0 - fr) * fifo[k] + fr * fifo[k + 1]) / 32768.0f;
-        s *= GAIN;
+        s *= gain;
         out[2 * i]     = s;
         out[2 * i + 1] = s;
         phase += step;
@@ -115,9 +120,7 @@ int audio_init(void)
     phase = 0.0;
     psg_init();
 
-    if (audioInit() != 0) 
-        return -1;
-        
+    if (audioInit() != 0) return -1;
 
     audioPortParam params;
     audioPortConfig config;
@@ -139,7 +142,7 @@ int audio_init(void)
     sysEventQueueDrain(snd_queue);
 
     snd_running = 1;
-    sysThreadCreate(&snd_thread, audio_thread, NULL, 1500, 0x4000,
+    sysThreadCreate(&snd_thread, audio_thread, NULL, 0x300, 0x6000,
                     THREAD_JOINABLE, "vecx_audio");
 
     if (audioPortStart(port_num) != 0) return -6;

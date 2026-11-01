@@ -7,11 +7,16 @@ ifeq ($(strip $(PSL1GHT)),)
 $(error "Please set PSL1GHT in your environment. export PSL1GHT=<path>")
 endif
 
+# debug / release
+RELEASE = debug
+
+
+
 #---------------------------------------------------------------------------------
 #  TITLE, APPID, CONTENTID, ICON0 SFOXML before ppu_rules.
 #---------------------------------------------------------------------------------
-TITLE		    := vecx
-APPID		    := VECX00001
+TITLE		    := VecX
+APPID		    := PS3VECX01
 CONTENTID	    := UP0001-$(APPID)_00-0000000000000000
 PKGFILES	    := $(CURDIR)/pkgfiles
 #ICON0           := $(CURDIR)/pkgfiles/ICON0.PNG
@@ -40,23 +45,34 @@ TARGET		:=	vecx
 BUILD		:=	build
 SOURCES		:=	source
 DATA		:=  
-SHADERS		:=  shaders
+SHADERS		:= 
 INCLUDES	:=	include source
 PKGFILES	:=	$(CURDIR)/pkgfiles
+SFOXML      := $(CURDIR)/pkgfiles/sfo.xml
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 # (link order matters: -lrsx before -lgcm_sys)
 #---------------------------------------------------------------------------------
-LIBS		:=	-lSDL  -lm -lrsx -lgcm_sys -lio -laudio -lsysutil -lsysfs -lrt -llv2
+LIBS		:=	-lSDL  -lm -lrsx -lgcm_sys -lio -laudio -lsysutil -lsysfs -lrt -llv2 
 
+ifeq ($(RELEASE),debug)
+	LIBS += -lnet -lsysmodule 
+endif
 #---------------------------------------------------------------------------------
 # options for code generation
 # -fgnu89-inline: vecx uses old-style __inline functions that otherwise give
 #                 "undefined reference" errors with modern gcc
 #---------------------------------------------------------------------------------
-#optional: -DDEBUG -DDEBUG_ADDR=\"10.0.0.152\" -DDEBUG_PORT=\"18194\" 
-CFLAGS		=	-O2 -Wall -mcpu=cell -fgnu89-inline $(MACHDEP) $(INCLUDE) $(DFLAGS) -DVERSION=\"$(VERSION)\" -DPS3LOADX
+
+
+
+CFLAGS		=	-O2 -Wall -mcpu=cell -fgnu89-inline $(MACHDEP) $(INCLUDE) $(DFLAGS) $(DEBUG_FLAGS) -DVERSION=\"$(VERSION)\" 
+
+ifeq ($(RELEASE),debug)
+CFLAGS += -DPS3LOADX -DDEBUG -DDEBUG_ADDR=\"10.0.0.104\" -DDEBUG_PORT=\"18194\" 
+endif
+
 CXXFLAGS	=	$(CFLAGS)
 
 LDFLAGS		=	$(MACHDEP) -Wl,-Map,$(notdir $@).map
@@ -80,7 +96,6 @@ export OUTPUT	:=	$(CURDIR)/$(TARGET)
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
 					$(foreach dir,$(DATA),$(CURDIR)/$(dir)) \
-					$(foreach dir,$(SHADERS),$(CURDIR)/$(dir))
 
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
@@ -94,11 +109,7 @@ CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.S)))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.bin)))
-VCGFILES	:=	$(foreach dir,$(SHADERS),$(notdir $(wildcard $(dir)/*.vcg)))
-FCGFILES	:=	$(foreach dir,$(SHADERS),$(notdir $(wildcard $(dir)/*.fcg)))
 
-VPOFILES	:=	$(VCGFILES:.vcg=.vpo)
-FPOFILES	:=	$(FCGFILES:.fcg=.fpo)
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -148,8 +159,7 @@ run:
 	ps3load $(OUTPUT).self
 
 #---------------------------------------------------------------------------------
-pkg:	
-	$(BUILD) $(OUTPUT).pkg
+pkg: $(BUILD) $(OUTPUT).pkg
 
 #---------------------------------------------------------------------------------
 release: clean pkg
