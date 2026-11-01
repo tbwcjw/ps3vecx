@@ -6,6 +6,6 @@ tags
 *.self
 *.pkg
 *.zip
-build
-boot/tools/
+*/build/
+VECTREXASM/**/tools/
 .python-version

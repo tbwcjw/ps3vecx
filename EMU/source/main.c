@@ -23,6 +23,9 @@
 SYS_PROCESS_PARAM(1001, 0x100000);
 
 #define USRDIR "/dev_hdd0/game/PS3VECX01/USRDIR/"
+#define EMUSELF "VECXEMU.SELF"
+#define MENUSELF USRDIR "VECXMENU.SELF"
+
 #define CARTS "carts/"
 #define DEFAULTCART USRDIR CARTS "boot.vec"
 #define ROM "rom/"
@@ -309,7 +312,7 @@ static void poll_input(void)
     if (d.BTN_SELECT && d.BTN_START) running = 0;           //exit
     if (d.BTN_SELECT) vecx_reset();                         //reset
     if (d.BTN_START)  paused = paused == 1 ? 0 : 1;         //pause
-    if (d.BTN_L3)                                           //fast forward
+    if (d.BTN_L1)                                           //fast forward
         speed_multiplier = (speed_multiplier == 20) 
             ? 40 : 20;
             
@@ -531,6 +534,7 @@ int main(int argc, char **argv)
     config.sync = 1;
     config.gain = 1.0f;
 
+
     //load config
     parse_config_file(&config);
     netDebug("Config parsed");
@@ -585,6 +589,7 @@ int main(int argc, char **argv)
         netDebug("OVERLAY: %s%s%s", USRDIR, OVERLAYS, config.overlay);
     }
 
+
     int aud = audio_init();
     audio_set_gain(config.gain);
     if(aud < 0)
@@ -633,11 +638,13 @@ int main(int argc, char **argv)
 
         present(shown_idx);
     }
+    
 
     #ifdef PS3LOADX
-    sysProcessExitSpawn2("/dev_hdd0/game/PSL145310/RELOAD.SELF", NULL, NULL, NULL, 0, 1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
+    sysProcessExitSpawn2(MENUSELF, NULL, NULL, NULL, 0, 1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
     #endif
 
     audio_shutdown();
+    //here we will return to the menu with sysProcessExitSpawn2
     return 0;
 }
