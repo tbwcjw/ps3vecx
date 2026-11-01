@@ -534,7 +534,6 @@ int main(int argc, char **argv)
     config.sync = 1;
     config.gain = 1.0f;
 
-
     //load config
     parse_config_file(&config);
     netDebug("Config parsed");
@@ -545,9 +544,7 @@ int main(int argc, char **argv)
     if (load_file(romPath, rom, sizeof rom) != (int)sizeof rom) { //rom is Minestorm, thats the bios REQUIRED
         netDebug("Failed to find rom file: %s%s%s", USRDIR, ROM, config.rom);
         //todo: maybe we can do a vsh notify?
-        #ifdef PS3LOADX
-        sysProcessExitSpawn2("/dev_hdd0/game/PSL145310/RELOAD.SELF", NULL, NULL, NULL, 0, 1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
-        #endif
+        sysProcessExitSpawn2(MENUSELF, NULL, NULL, NULL, 0, 1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
         return 0;
     }
     netDebug("ROM: %s%s%s", USRDIR, ROM, config.rom);
@@ -638,11 +635,7 @@ int main(int argc, char **argv)
 
         present(shown_idx);
     }
-    
-
-    #ifdef PS3LOADX
     sysProcessExitSpawn2(MENUSELF, NULL, NULL, NULL, 0, 1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
-    #endif
 
     audio_shutdown();
     //here we will return to the menu with sysProcessExitSpawn2

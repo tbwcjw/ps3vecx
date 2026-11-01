@@ -3,6 +3,10 @@ GNU GENERAL PUBLIC LICENSE
 Version 3, 29 June 2007
 ==========================
 
+THIS LICENSE COVERS THE FORKED PORTION OF THE REPOSITORY, WHICH CAN BE FOUND HERE:
+<https://github.com/jhawthorn/vecx>. THE INCLUDED MIT LICENSE COVERS THE REST OF
+THE PROJECT.
+
 > Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>  
   Everyone is permitted to copy and distribute verbatim copies of this license document, but changing it is not allowed.
 
@@ -674,3 +678,4 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <http://www.gnu.org/philosophy/why-not-lgpl.html>.
+
