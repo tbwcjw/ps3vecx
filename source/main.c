@@ -43,6 +43,7 @@ static int dirty = 0;
 
 #define EMU_FRAME_US   20000u
 #define EMU_MAX_BACKLOG (3u * EMU_FRAME_US)
+static volatile int speed_multiplier = 20;
 
 static volatile int running = 1;
 static volatile int paused = 0;
@@ -308,7 +309,10 @@ static void poll_input(void)
     if (d.BTN_SELECT && d.BTN_START) running = 0;           //exit
     if (d.BTN_SELECT) vecx_reset();                         //reset
     if (d.BTN_START)  paused = paused == 1 ? 0 : 1;         //pause
-
+    if (d.BTN_L3)                                           //fast forward
+        speed_multiplier = (speed_multiplier == 20) 
+            ? 40 : 20;
+            
     snd_regs[14] |= 0x0f; 
     if (d.BTN_CROSS)    snd_regs[14] &= ~0x01;
     if (d.BTN_CIRCLE)   snd_regs[14] &= ~0x02;
@@ -612,7 +616,7 @@ int main(int argc, char **argv)
 
             while (emu_budget >= EMU_FRAME_US)
             {
-                vecx_emu((VECTREX_MHZ / 1000) * 20);
+                vecx_emu((VECTREX_MHZ / 1000) * speed_multiplier);
                 emu_budget -= EMU_FRAME_US;
             }
         }
