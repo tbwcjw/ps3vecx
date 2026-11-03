@@ -1,6 +1,6 @@
-cart=boot.vec
+cart=about.vec
 rom=rom.dat
-overlay=overlay.png
+overlay=
 alpha=128
 thickness=2
 rotation=0

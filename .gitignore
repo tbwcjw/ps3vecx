@@ -2,10 +2,12 @@
 vecx
 tags
 .vscode
-*.elf
 *.self
 *.pkg
 *.zip
-*/build/
-VECTREXASM/**/tools/
+*.elf
+*/build/*.o
+*/build/*.d
+*/build/*.elf
+*/build/*.elf.map
 .python-version

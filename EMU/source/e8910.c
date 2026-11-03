@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <SDL/SDL.h>
-#include <debug.h>
 #define SOUND_FREQ   22050
 #define SOUND_SAMPLE  1024
 

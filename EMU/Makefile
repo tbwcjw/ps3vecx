@@ -10,8 +10,6 @@ endif
 # debug / release
 RELEASE = debug
 
-
-
 #---------------------------------------------------------------------------------
 #  TITLE, APPID, CONTENTID, ICON0 SFOXML before ppu_rules.
 #---------------------------------------------------------------------------------
@@ -47,6 +45,9 @@ SOURCES		:=	source
 DATA		:=  
 SHADERS		:= 
 INCLUDES	:=	include source
+COMMON_DIR	:=	$(abspath $(CURDIR)/../common)
+COMMON_SRC	:=	$(COMMON_DIR)/source
+COMMON_INC	:=	$(COMMON_DIR)/include
 #PKGFILES	:=	$(CURDIR)/pkgfiles
 
 #---------------------------------------------------------------------------------
@@ -93,6 +94,7 @@ export OUTPUT	:=	$(CURDIR)/$(TARGET)
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
 					$(foreach dir,$(DATA),$(CURDIR)/$(dir)) \
+					$(COMMON_SRC)
 
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
@@ -101,7 +103,8 @@ export BUILDDIR	:=	$(CURDIR)/$(BUILD)
 #---------------------------------------------------------------------------------
 # automatically build a list of object files for our project
 #---------------------------------------------------------------------------------
-CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
+CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c))) \
+				$(notdir $(wildcard $(COMMON_SRC)/*.c))
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.S)))
@@ -127,6 +130,7 @@ export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
 # build a list of include paths
 #---------------------------------------------------------------------------------
 export INCLUDE	:=	$(foreach dir,$(INCLUDES), -I$(CURDIR)/$(dir)) \
+					-I$(COMMON_INC) \
 					$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
 					$(LIBPSL1GHT_INC) \
 					-I$(CURDIR)/$(BUILD) -I$(PORTLIBS)/include
@@ -152,7 +156,7 @@ clean:
 	@rm -fr $(BUILD) $(OUTPUT).elf $(OUTPUT).self $(OUTPUT).pkg $(OUTPUT).gnpdrm.pkg EBOOT.BIN
 
 #---------------------------------------------------------------------------------
-run:
+run: build
 	ps3load $(OUTPUT).self
 
 #---------------------------------------------------------------------------------

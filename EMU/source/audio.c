@@ -130,22 +130,25 @@ int audio_init(void)
     params.attrib      = 0;
     params.level       = 0.5f;
 
-    if (audioPortOpen(&params, &port_num) != 0) return -2;
-    if (audioGetPortConfig(port_num, &config) != 0) return -3;
+    if (audioPortOpen(&params, &port_num) != 0) return -1;
+    if (audioGetPortConfig(port_num, &config) != 0) return -1;
     port_data = (float *)(uintptr_t)config.audioDataStart;
 
     //shhhh
     memset(port_data, 0, NUM_BLOCKS * BLOCK_FLTS * sizeof(float));
 
-    if (audioCreateNotifyEventQueue(&snd_queue, &snd_key) != 0) return -4;
-    if (audioSetNotifyEventQueue(snd_key) != 0) return -5;
+    if (audioCreateNotifyEventQueue(&snd_queue, &snd_key) != 0) return -1;
+    if (audioSetNotifyEventQueue(snd_key) != 0) return -1;
     sysEventQueueDrain(snd_queue);
 
     snd_running = 1;
-    sysThreadCreate(&snd_thread, audio_thread, NULL, 0x300, 0x6000,
-                    THREAD_JOINABLE, "vecx_audio");
 
-    if (audioPortStart(port_num) != 0) return -6;
+    //the front fell off
+    if(sysThreadCreate(&snd_thread, audio_thread, NULL, 0x300, 0x6000, THREAD_JOINABLE, "vecx_audio") != 0) 
+        return -1;
+
+    if (audioPortStart(port_num) != 0) 
+        return -1;
     snd_ok = 1;
     return 0;
 }

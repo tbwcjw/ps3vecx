@@ -1,22 +1,16 @@
-#include <stdlib.h>
+#include "common.h"
+
 #include <ctype.h>
-#include <stdio.h>
 #include <dirent.h>
-#include <math.h>
 
-
-#include <io/pad.h>
 #include <sysutil/osk.h>
-#include <sys/process.h>
 #include <tiny3d.h>
 #include <libfont2.h>
-#include <string.h>
 
 #include "osk.h"
-#include "debug.h"
 #include "font.h"
 
-
+SYS_PROCESS_PARAM(MENU_PRIO, MENU_STACKSIZE);
 
 #define WHITE 0xFFFFFFFF
 #define BLACK 0x00000000
@@ -39,15 +33,6 @@
 #define FONT_TITLE SetFontSize(28, 46)
 #define FONT_HEADER SetFontSize(32, 52)
 
-#define USRDIR "/dev_hdd0/game/PS3VECX01/USRDIR/"
-#define EMUSELF USRDIR "VECXEMU.SELF"
-#define MENUSELF USRDIR "VECXMENU.SELF"
-#define CARTS USRDIR "carts/"
-#define DEFAULTCART CARTS "boot.vec"
-#define ROM USRDIR "rom/"
-#define OVERLAYS USRDIR "overlays/"
-#define CONFIG USRDIR "config.txt"
-
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 typedef enum
@@ -55,7 +40,8 @@ typedef enum
     STATE_GAME_SECTION,
     STATE_OVERLAY_SECTION,
     STATE_OPTIONS_SECTION,
-    STATE_LAUNCH_SECTION
+    STATE_LAUNCH_SECTION,
+    STATE_ERROR_DIALOG
 } State;
 
 static State currentState = STATE_GAME_SECTION;
@@ -78,6 +64,7 @@ typedef struct
     float value;
 } OptionOption;
 
+
 static int cartIndex = 0;
 static int cartCount = 0;
 static CartOption *cart_options = NULL;
@@ -94,27 +81,13 @@ static OptionOption option_options[] = {
     {"vsync", "VSync: 0 or 1", 1},
     {"audio gain", "Audio Gain: Between 0.25 and 5.0", 1.0f}};
 
-//osk
+static int launchIndex = 3;
+
 #define OSK_BUF_LEN 8
 static char osk_option_buf[ARRAY_SIZE(option_options)][OSK_BUF_LEN];
 
 
-
-typedef struct {
-    char *rom;
-    char *cart;
-    char *overlay;
-    int alpha;
-    int thickness;
-    int rotation;
-    int sync;
-    float gain;
-} Config;
-
 Config config = {0};
-
-static volatile int running = 1;
-static float tick = 0.0f;
 
 // pad
 typedef struct
@@ -135,6 +108,84 @@ static PadButtons lastPad = {0};
 #define PRESSED_NOW(btn) (paddata.btn && !lastPad.btn)
 #define RELEASED_NOW(btn) (!paddata.btn && lastPad.btn)
 
+static volatile int error_dialog_buzzer = 0; 
+static volatile int callback_exit = 0;
+static volatile int running = 1;
+static float tick = 0.0f;
+
+static volatile int emu_exit_code = 0;
+
+char *emu_exit_code_string()
+{
+    switch (emu_exit_code)
+    {
+        case EMU_EXIT_SUCCESS:  return "Success";
+        case EMU_CONFIG_ERROR:  return "Configuration file failed to parse";
+        case EMU_ROM_NOT_FOUND: return "Vectrex ROM (BIOS) was not found";
+        case EMU_AUDIO_INIT:    return "Failed to initialize audio thread";
+        default:                return "An unknown error occurred";
+    }
+}
+
+static volatile int menu_error_code = 0;
+typedef enum
+{
+    MENU_SUCCESS = 0,
+    MENU_CONFIG_PARSE_ERROR = -1,
+    MENU_CONFIG_NOT_FOUND = -2,
+    MENU_CART_READ_ERROR = -3,
+    MENU_CONFIG_CREATE_ERROR = -4,
+    MENU_OVERLAY_READ_ERROR = -5,
+    MENU_EMU_BINARY_NOT_FOUND = -6,
+    MENU_MENU_BINARY_NOT_FOUND = -7,
+    MENU_ABOUT_CART_NOT_FOUND = -8,
+    MENU_CONTROLS_CART_NOT_FOUND = -9
+} MenuErrorCode;
+
+char *menu_error_code_string()
+{
+    switch (menu_error_code)
+    {
+        case MENU_SUCCESS: return                   "Success";
+        case MENU_CONFIG_PARSE_ERROR:  return       "Configuration file failed to parse";
+        case MENU_CONFIG_NOT_FOUND: return          "Config file not found, creating it";
+        case MENU_CONFIG_CREATE_ERROR: return       "Failed to create a config file";
+        case MENU_CART_READ_ERROR: return           "Failed to read one or more carts";
+        case MENU_OVERLAY_READ_ERROR: return        "Failed to read one or more overlays";
+        case MENU_EMU_BINARY_NOT_FOUND: return      "Failed to find the VECXEMU.SELF";
+        case MENU_MENU_BINARY_NOT_FOUND: return     "Failed to find the VECXMENU.SELF";
+        case MENU_ABOUT_CART_NOT_FOUND: return      "Failed to find about.vec";
+        case MENU_CONTROLS_CART_NOT_FOUND: return   "Failed to find controls.vec";
+        default: return                             "An unknown error occurred";
+    }
+}
+
+typedef enum
+{
+    ERROR_TYPE_EMULATOR,
+    ERROR_TYPE_MENU
+} ErrorType;
+
+static ErrorType current_error_type;
+static volatile bool error_recoverable = 1;
+
+void throw_error(ErrorType type, int code, bool recoverable)
+{
+    current_error_type = type;
+    error_dialog_buzzer = 0;
+
+    if (type == ERROR_TYPE_EMULATOR)
+        emu_exit_code = code;
+    else if (type == ERROR_TYPE_MENU)
+        menu_error_code = code;
+    else
+        return;
+
+    currentState = STATE_ERROR_DIALOG;
+
+    if(!recoverable)
+        error_recoverable = 0;
+}
 
 void cycle_index(int *index, int count, int direction)
 {
@@ -148,13 +199,14 @@ void cycle_index(int *index, int count, int direction)
 
     if (*index < 0)
         *index = count - 1;
+
 }
 
 void cycle_state(State *state, int direction)
 {
     if (direction > 0)
     {
-        // DOWN
+        // down
         if (*state == STATE_LAUNCH_SECTION)
             *state = STATE_GAME_SECTION;
         else
@@ -162,16 +214,18 @@ void cycle_state(State *state, int direction)
     }
     else
     {
-        // UP
+        // up
         if (*state == STATE_GAME_SECTION)
             *state = STATE_LAUNCH_SECTION;
         else
             *state = (State)(*state - 1);
     }
+
+    if (*state != STATE_LAUNCH_SECTION)
+        launchIndex = 4;
 }
-// animation tick
 
-
+// effects
 uint32_t sin_brightness(uint32_t base_color, float speed_multiplier, float min_brightness)
 {
     float pulse = (sinf(tick * speed_multiplier) + 1.0f) * 0.5f;
@@ -197,6 +251,7 @@ void load_texture()
     ResetFont();
     texture_pointer = (u32 *)AddFontFromBitmapArray((u8 *)font, (u8 *)texture_pointer, 32, 255, 16, 32, 2, BIT0_FIRST_PIXEL);
 }
+
 void draw_horizontal_line(float y_pos, float thickness, uint32_t color)
 {
     tiny3d_SetPolygon(TINY3D_QUADS);
@@ -217,9 +272,10 @@ void draw_horizontal_line(float y_pos, float thickness, uint32_t color)
 
     tiny3d_End();
 }
+
 void draw_arrow(float x, float y, float size, float thickness, int direction, uint32_t color)
 {
-    float z = 65535.0f;
+    float z = 65000.0f;
     float sign = (direction == 0) ? -1.0f : 1.0f;
 
     tiny3d_SetPolygon(TINY3D_QUADS);
@@ -257,7 +313,7 @@ void draw_arrow(float x, float y, float size, float thickness, int direction, ui
 void draw_header()
 {
     FONT_SMALL;
-    DrawFormatString(0, 0, "v0.1");
+    DrawFormatString(0, 0, "v%s", VERSION);
     SetFontAutoCenter(1);
     DrawString(350, 0, "vecX - Vectrex Emulator");
     SetFontAutoCenter(0);
@@ -284,9 +340,8 @@ void draw_game_section()
 
     SetFontAutoCenter(0);
 
-    draw_horizontal_line(174.0f, 1.0f, WHITE);
+    draw_horizontal_line(174.0f, 2.0f, WHITE);
 }
-
 void draw_overlay_section()
 {
     uint32_t color = currentState == STATE_OVERLAY_SECTION
@@ -311,6 +366,60 @@ void draw_overlay_section()
 
     draw_horizontal_line(333.0f, 1.0f, WHITE);
 }
+void draw_rect(float x, float y, float w,  float h, u32 color, float z) {
+    tiny3d_SetPolygon(TINY3D_QUADS);
+    tiny3d_VertexPos(x, y, z);
+    tiny3d_VertexColor(color);
+
+    tiny3d_VertexPos(x + w, y, z);
+    tiny3d_VertexColor(color);
+
+    tiny3d_VertexPos(x + w, y + h, z);
+    tiny3d_VertexColor(color);
+
+    tiny3d_VertexPos(x, y + h, z);
+    tiny3d_VertexColor(color);
+
+    tiny3d_End();
+}
+
+void draw_error_dialog()
+{
+    error_dialog_buzzer = 1;
+
+    SetFontAutoCenter(1);
+    FONT_LARGE;
+
+    draw_rect(207.0f, 192.0f, 434.0f, 124.0f, WHITE, 65000.0f);
+    draw_rect(209.0f, 194.0f, 430.0f, 120.0f, DARK_GREY, 64900.0f);
+
+    SetFontZ(64000.0f);
+    DrawString(225.0f, 200.0f, "An error occurred");
+
+    SetFontColor(WHITE, BLACK);
+
+    if (current_error_type == ERROR_TYPE_EMULATOR)
+        DrawString(225.0f, 240.0f, emu_exit_code_string());
+    else
+        DrawString(225.0f, 240.0f, menu_error_code_string());
+
+    if(error_recoverable)
+    {
+        SetFontColor(CROSS, BLACK);
+        DrawString(249.0f, 285.0f, "Press X to continue");
+    }
+    else
+    {
+        SetFontColor(CIRCLE, BLACK);
+        DrawString(249.0f, 285.0f, "Press X to exit...");
+    }
+    
+
+    SetFontColor(WHITE, BLACK);
+    SetFontZ(65535.0f);
+    FONT_DEFAULT;
+    SetFontAutoCenter(0);
+}
 
 int save_config(void)
 {
@@ -331,6 +440,75 @@ int save_config(void)
     return 0;
 }
 
+void draw_option_section()
+{
+    uint32_t color = currentState == STATE_OPTIONS_SECTION
+                         ? sin_brightness(YELLOW, 5, 96.0f)
+                         : WHITE;
+
+    draw_arrow(30.0, 398.0, 20, 5, 0, color);
+    draw_arrow(810.0, 398.0, 20, 5, 1, color);
+
+    SetFontColor(WHITE, BLACK);
+    SetFontAutoCenter(1);
+    FONT_XHUGE;
+    DrawFormatString(355, 390, "%s", option_options[optionIndex].name);
+
+    FONT_LARGE;
+    SetFontColor(LIGHT_GREY, BLACK);
+    if (optionIndex == 4)
+        DrawFormatString(355, 430, "%.3f", option_options[optionIndex].value);
+    else
+        DrawFormatString(355, 430, "%d", (int)option_options[optionIndex].value);
+
+    SetFontAutoCenter(0);
+
+    draw_horizontal_line(492.0f, 1.0f, WHITE);
+}
+
+void draw_footer()
+{
+    draw_horizontal_line(492.0f, 1.0f, WHITE);
+    FONT_LARGE;
+
+    if (currentState == STATE_OPTIONS_SECTION)
+    {
+        SetFontColor(CROSS, BLACK);
+        DrawString(10, 512, "X: EDIT");
+    }
+
+    if (currentState == STATE_LAUNCH_SECTION)
+    {
+        const char *items[] = {
+            "EXIT",
+            "ABOUT",
+            "CONTROLS",
+            "REFRESH",
+            "START"
+        };
+
+        int positions[] = {380, 455, 540, 660, 770};
+
+        for (int i = 0; i < 5; i++)
+        {
+            uint32_t color = (launchIndex == i)
+                ? sin_brightness(YELLOW, 5, 96.0f)
+                : WHITE;
+
+            SetFontColor(color, BLACK);
+            DrawString(positions[i], 512, (char *)items[i]);
+        }
+    }
+    else
+    {
+        SetFontColor(WHITE, BLACK);
+        DrawString(770, 512, "START");
+    }
+
+    SetFontColor(WHITE, BLACK);
+    FONT_DEFAULT;
+}
+
 static void edit_option(int index)
 {
     if (index < 0 || index >= (int)ARRAY_SIZE(option_options))
@@ -340,7 +518,7 @@ static void edit_option(int index)
     char seed[48];
 
     if (index == 4)
-        snprintf(seed, sizeof(seed), "%.1f", option_options[index].value);
+        snprintf(seed, sizeof(seed), "%.3f", option_options[index].value);
     else
         snprintf(seed, sizeof(seed), "%d", (int)option_options[index].value);
 
@@ -361,7 +539,7 @@ static void edit_option(int index)
     
     
     if (option_options[1].value < 1)   option_options[1].value = 1;    //thickness
-    if (option_options[1].value > 5)   option_options[1].value = 5;
+    if (option_options[1].value > MAX_THICKNESS)   option_options[1].value = MAX_THICKNESS;
 
     if (option_options[2].value < -1)  option_options[2].value = -1;    //rotation
     if (option_options[2].value > 1)  option_options[2].value = 1;
@@ -375,69 +553,8 @@ static void edit_option(int index)
     save_config();
 }
 
-void draw_option_section()
-{
-    uint32_t color = currentState == STATE_OPTIONS_SECTION
-                         ? sin_brightness(YELLOW, 5, 96.0f)
-                         : WHITE;
 
-    draw_arrow(30.0, 398.0, 20, 5, 0, color);
-    draw_arrow(810.0, 398.0, 20, 5, 1, color);
-
-    SetFontColor(WHITE, BLACK);
-    SetFontAutoCenter(1);
-    FONT_XHUGE;
-    DrawFormatString(355, 390, "%s", option_options[optionIndex].name);
-
-    FONT_LARGE;
-    SetFontColor(LIGHT_GREY, BLACK);
-    if (optionIndex == 4)
-        DrawFormatString(355, 430, "%.2f", option_options[optionIndex].value);
-    else
-        DrawFormatString(355, 430, "%d", (int)option_options[optionIndex].value);
-
-    SetFontAutoCenter(0);
-
-    draw_horizontal_line(492.0f, 1.0f, WHITE);
-}
-
-void draw_footer()
-{
-    uint32_t color = currentState == STATE_LAUNCH_SECTION
-                         ? sin_brightness(YELLOW, 5, 96.0f)
-                         : WHITE;
-
-    draw_horizontal_line(492.0f, 1.0f, WHITE);
-    FONT_LARGE;
-
-    if(currentState == STATE_OPTIONS_SECTION)
-    {
-        SetFontColor(CROSS, BLACK);
-        DrawString(10, 512, "X: EDIT");
-    }
-    SetFontColor(color, BLACK);
-    DrawString(770, 512, "START");
-    SetFontColor(WHITE, BLACK);
-    FONT_DEFAULT;
-}
-
-static int set_dynamic_string(char** field, const char* value)
-{
-    netDebug("sds: enter");
-    char* copy = strdup(value);
-    netDebug("sds: strdup -> %lx", (unsigned long)copy);
-    if (copy == NULL)
-        return -1;
-
-    netDebug("sds: freeing old %lx", (unsigned long)*field);
-    free(*field);
-    netDebug("sds: free ok");
-
-    *field = copy;
-    return 0;
-}
-
-static void freeGames(void)
+static void free_carts(void)
 {
     for (int i = 0; i < cartCount; i++)
     {
@@ -451,7 +568,7 @@ static void freeGames(void)
     cartCount = 0;
 }
 
-static void freeOverlays(void)
+static void free_overlays(void)
 {
     for (int i = 0; i < overlayCount; i++)
         free(overlay_options[i].filename);
@@ -464,21 +581,30 @@ static void freeOverlays(void)
 
 int parse_config_file(Config* config)
 {
-    netDebug("parse: start");
     FILE* file = fopen(CONFIG, "r");
     if (file == NULL)
     {
-        netDebug("parse: fopen NULL");
-        return -1;
+        throw_error(ERROR_TYPE_MENU, MENU_CONFIG_NOT_FOUND, true);
+        file = fopen(CONFIG, "w"); //create file
+        if (file == NULL) {
+            throw_error(ERROR_TYPE_MENU, MENU_CONFIG_CREATE_ERROR, false);
+        }
+
+        fprintf(file, "rom=rom.dat\n");
+        fprintf(file, "cart=about.vec\n");
+        fprintf(file, "overlay=\n");
+        fprintf(file, "alpha=128\n");
+        fprintf(file, "thickness=2\n"); 
+        fprintf(file, "rotation=0\n");
+        fprintf(file, "sync=1\n");
+        fprintf(file, "gain=1.0\n");
+        fclose(file);
     }
-    netDebug("parse: fopen ok");
 
     char line[128+8];
     while (fgets(line, sizeof(line), file) != NULL)
     {
-        netDebug("parse: got line");
         line[strcspn(line, "\r\n")] = '\0';
-        netDebug("parse: line=%s", line);
 
         char* sep = strchr(line, '=');
         if (!sep) continue;
@@ -488,7 +614,6 @@ int parse_config_file(Config* config)
         char* value = sep + 1;
         while (*value == ' ') value++;
 
-        netDebug("parse: key=%s", key);
 
         if (strcmp(key, "cart") == 0)
         {
@@ -523,14 +648,74 @@ int parse_config_file(Config* config)
             config->gain = strtof(value, NULL);
         }
 
-        netDebug("parse: handled key");
     }
 
     fclose(file);
-    netDebug("parse: done");
     return 0;
 }
 
+
+static int read_cart_header(const char *path, char *out, size_t out_size)
+{
+    unsigned char buf[256];
+    size_t n;
+    size_t used = 0;
+    int strings_seen = 0;
+    FILE *f;
+
+    if (out_size == 0)
+        return -1;
+
+    out[0] = '\0';
+
+    f = fopen(path, "rb");
+    if (!f)
+        return -1;
+
+    n = fread(buf, 1, sizeof buf, f);
+    fclose(f);
+
+    for (size_t i = 0; i < n; i++)
+    {
+        if (buf[i] != 0x80)
+            continue;
+
+        size_t s = i;
+        while (s > 0 && isprint(buf[s - 1]))
+            s--;
+
+        if (i - s < 2)
+            continue;
+
+        strings_seen++;
+
+        if (strings_seen == 1 && buf[s] == 'g' && buf[s + 1] == ' ')
+            continue;
+
+        if (used > 0 && used + 1 < out_size)
+            out[used++] = ' ';
+
+        for (size_t j = s; j < i && used + 1 < out_size; j++)
+            out[used++] = (char)buf[j];
+
+        if(used > 3)
+            break;
+
+    }
+    out[used] = '\0';
+
+
+    if (used > 32)
+    {
+        used = 32 - 3;
+        memcpy(out + used, "...", 3);
+        used += 3;
+        out[used] = '\0';
+    }
+
+
+    return used > 0 ? 0 : -1;
+}
 static int load_carts(void)
 {
     DIR *dir = opendir(CARTS);
@@ -566,45 +751,41 @@ static int load_carts(void)
             goto error;
 
         options = temp;
-
         options[count].filename = NULL;
         options[count].header = NULL;
+        count++;
 
-        if (set_dynamic_string(
-                &options[count].filename,
-                entry->d_name) < 0)
+        CartOption *cart = &options[count - 1];
+
+        if (set_dynamic_string(&cart->filename, entry->d_name) < 0)
             goto error;
 
+        char fullpath[1064];
         char header[256];
-        
-        // TODO: REPLACE THIS WITH THE OUTPUT OF A FUNCTION
-        // THAT GETS THE HEADER TEXT FROM THE FILE
-        size_t name_len = len - 4;
 
-        if (name_len >= sizeof(header))
-            name_len = sizeof(header) - 1;
+        snprintf(fullpath, sizeof fullpath, "%s/%s", CARTS, entry->d_name);
 
-        memcpy(header, entry->d_name, name_len);
-        header[name_len] = '\0';
-
-        for (size_t i = 0; i < name_len; i++)
+        if (read_cart_header(fullpath, header, sizeof header) < 0)
         {
-            header[i] = header[i] == '_'
-                            ? ' '
-                            : toupper((unsigned char)header[i]);
+            //fallback, read the filename again
+            size_t name_len = len - 4;
+
+            if (name_len >= sizeof header)
+                name_len = sizeof header - 1;
+
+            for (size_t i = 0; i < name_len; i++)
+                header[i] = entry->d_name[i] == '_' ? ' ' : toupper((unsigned char)entry->d_name[i]);
+
+            header[name_len] = '\0';
         }
 
-        if (set_dynamic_string(
-                &options[count].header,
-                header) < 0)
+        if (set_dynamic_string(&cart->header, header) < 0)
             goto error;
-        ///////////////////////////////////////////////////
-        count++;
     }
 
     closedir(dir);
 
-    /* No cartridges found */
+    //no cartridges
     if (count == 0)
     {
         options = calloc(1, sizeof(CartOption));
@@ -612,8 +793,8 @@ static int load_carts(void)
         if (!options)
             return -1;
 
-        if (set_dynamic_string(&options[0].filename, "") < 0 ||
-            set_dynamic_string(&options[0].header, "NO CART") < 0)
+        //todo - dummy option
+        if (set_dynamic_string(&options[0].filename, "") < 0 || set_dynamic_string(&options[0].header, "NO CART") < 0)
         {
             free(options[0].filename);
             free(options[0].header);
@@ -624,7 +805,7 @@ static int load_carts(void)
         count = 1;
     }
 
-    freeGames();
+    free_carts();
 
     cart_options = options;
     cartCount = count;
@@ -638,7 +819,7 @@ error:
 
     closedir(dir);
 
-    for (int i = 0; i < count + 1; i++)
+    for (int i = 0; i < count; i++)
     {
         free(options[i].filename);
         free(options[i].header);
@@ -656,7 +837,7 @@ static int load_overlays(void)
     OverlayOption *options = NULL;
     int count = 0;
 
-    /* Always add NO OVERLAY first (value = "") */
+    //no overlay first
     options = calloc(1, sizeof(OverlayOption));
 
     if (!options)
@@ -686,10 +867,7 @@ static int load_overlays(void)
             if (strcmp(entry->d_name + len - 4, ".png") != 0)
                 continue;
 
-            OverlayOption *temp = realloc(
-                options,
-                sizeof(OverlayOption) * (count + 1)
-            );
+            OverlayOption *temp = realloc(options, sizeof(OverlayOption) * (count + 1));
 
             if (!temp)
                 goto error;
@@ -698,9 +876,7 @@ static int load_overlays(void)
 
             options[count].filename = NULL;
 
-            if (set_dynamic_string(
-                    &options[count].filename,
-                    entry->d_name) < 0)
+            if (set_dynamic_string(&options[count].filename, entry->d_name) < 0)
                 goto error;
 
             count++;
@@ -710,12 +886,11 @@ static int load_overlays(void)
         dir = NULL;
     }
 
-    freeOverlays();
+    free_overlays();
 
     overlay_options = options;
     overlayCount = count;
 
-    /* Select NO OVERLAY on launch */
     overlayIndex = 0;
 
     printf("Loaded %d overlays\n", overlayCount);
@@ -735,15 +910,9 @@ error:
     return -1;
 }
 
-void load_emulator()
-{
-    save_config();
-    sysProcessExitSpawn2(EMUSELF, NULL, NULL, NULL, 0, 1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
-    
-}
 static void set_from_config(const Config *config)
 {
-    // Select configured cartridge
+    // select configured cartridge
     if (config->cart && config->cart[0] != '\0')
     {
         for (int i = 0; i < cartCount; i++)
@@ -756,7 +925,7 @@ static void set_from_config(const Config *config)
         }
     }
 
-    // Select configured overlay
+    // select configured overlay
     if (config->overlay && config->overlay[0] != '\0')
     {
         for (int i = 0; i < overlayCount; i++)
@@ -770,7 +939,6 @@ static void set_from_config(const Config *config)
     }
 
     option_options[0].value = config->alpha;
-    
     option_options[1].value = config->thickness;
     option_options[2].value = config->rotation;
     option_options[3].value = config->sync;
@@ -778,26 +946,92 @@ static void set_from_config(const Config *config)
     
 }
 
-int load_file(const char *path, void *dst, size_t max)
+//exit routines
+void load_emulator()
 {
-    FILE *f = fopen(path, "rb");
-    if (!f) return -1;
-    size_t n = fread(dst, 1, max, f);
-    fclose(f);
-    return (int)n;
+    save_config();
+    sysProcessExitSpawn2(EMUSELF, NULL, NULL, NULL, 0, EMU_PRIO, EMU_STACKSIZE); 
+}
+
+void reload_menu()
+{
+    save_config();
+    sysProcessExitSpawn2(MENUSELF, NULL, NULL, NULL, 0, MENU_PRIO, MENU_STACKSIZE); 
+}
+
+void finalize()
+{
+    save_config();
+
+    if(running)
+        running = 0;
+
+    if(!callback_exit)
+    {
+#ifdef PS3LOADX
+    sysProcessExitSpawn2("/dev_hdd0/game/PSL145310/RELOAD.SELF", NULL, NULL, NULL, 0, 1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
+#endif
+    }
+    else
+    {
+        sysProcessExit(0);
+    }
+
+    
+}
+
+int sys_ring_buzzer(int beeps) {
+    if (beeps < 1) beeps = 1;
+    if (beeps > 3) beeps = 3;
+
+    static const uint64_t args[3][3] = {
+        {0x1004, 0x4, 0x6},     //single beep
+        {0x1004, 0x7, 0x36},    //two beeps
+        {0x1004, 0xa, 0x1b6}    //three beeps
+    };
+
+    lv2syscall3(392, args[beeps - 1][0], args[beeps - 1][1], args[beeps - 1][2]);
+    return 0;
+}
+
+static void sysutil_cb(u64 status, u64 param, void *usrdata)
+{
+    (void)param; 
+    (void)usrdata;
+
+    if (status == SYSUTIL_EXIT_GAME)
+    {
+        callback_exit = 1;
+        finalize();
+    }
+}
+
+void tbi(void) {}
+
+int cart_index(char* filename)
+{
+    for (int i = 0; i < cartCount; i++)
+    {
+        if (strcmp(cart_options[i].filename, filename) == 0)
+        {
+            return i;
+        }
+    }
+    return -1;
 }
 
 int main(int argc, char **argv)
 {
+    sysUtilRegisterCallback(0, sysutil_cb, NULL);
+
     tiny3d_Init(1024 * 1024);
     tiny3d_Project2D();
-
+    
     netInitialize();
     netDebugInit();
-    netDebug("Hello");
+    netDebug("MENU, %#x, %#x", MENU_PRIO, MENU_STACKSIZE);
 
     load_texture();
-    SetDoubleTextureModule(0, 0);
     SetCurrentFont(0);
     FONT_SMALL;
     SetFontColor(WHITE, BLACK);
@@ -809,120 +1043,152 @@ int main(int argc, char **argv)
     padData paddata;
     memset(&paddata, 0, sizeof(paddata));
 
+
+    if (argc > 1 && argv[1] != NULL)
+    {
+        emu_exit_code = atoi(argv[1]);
+
+        if (emu_exit_code != EMU_EXIT_SUCCESS)
+            throw_error(ERROR_TYPE_EMULATOR, emu_exit_code, true);
+    }
+
+
     unsigned char emuSelf[8192];
     char emuSelfPath[512];
 
     if(load_file(EMUSELF, emuSelf, sizeof emuSelf) == -1) {
-        netDebug("Failed to find %s", emuSelfPath);
+        throw_error(ERROR_TYPE_MENU, MENU_EMU_BINARY_NOT_FOUND, false);
     } else {
         lv2syscall2(834,(u64)emuSelfPath,0170777ULL);
+        netDebug("chmod emu self");
     }
 
     unsigned char menuSelf[8192];
     char menuSelfPath[512];
 
     if(load_file(EMUSELF, menuSelf, sizeof menuSelf) == -1) {
-        netDebug("Failed to find %s", menuSelfPath);
+        throw_error(ERROR_TYPE_MENU, MENU_MENU_BINARY_NOT_FOUND, false);
     } else {
         lv2syscall2(834,(u64)menuSelfPath,0170777ULL);
+        netDebug("chmod menu self");
     }
 
 
     int ret = load_carts();
     if(ret < 0)
     {
-        netDebug("Load carts failed");
-        return 0;
+        throw_error(ERROR_TYPE_MENU, MENU_CART_READ_ERROR, true);
     }
     
     ret = load_overlays();
     if(ret < 0)
     {
-        netDebug("load overlays failed");
+        throw_error(ERROR_TYPE_MENU, MENU_OVERLAY_READ_ERROR, true);
         return 0;
     }
 
-    config.rom     = strdup("rom.dat");
-    config.cart    = strdup("boot.vec");
-    config.overlay = strdup("overlay.png");
+    //set defaults
+    config.rom          = strdup("rom.dat");
+    config.cart         = strdup("about.vec");
+    config.overlay      = strdup("");
     config.alpha = 255;
     config.thickness = 2;
     config.rotation = 0;
     config.sync = 1;
     config.gain = 1.0f;
 
+    //parse config file, if not found it will be created
     ret = parse_config_file(&config);
     if(ret < 0)
-    {
-        netDebug("parse config file failed %s", CONFIG);
-        return 0;
-    } else {
-        netDebug("parsed config");
-    }
+        throw_error(ERROR_TYPE_MENU, MENU_CONFIG_PARSE_ERROR, true);
     
+    //set our config data
     set_from_config(&config);
-    netDebug("set defaults from config");
 
     while (running)
     {
-        netDebug("flipping");
-        tiny3d_Flip();
-
-        tick += 0.016f;
-        tiny3d_Clear(BLACK, TINY3D_CLEAR_ALL);
-
         ioPadGetInfo(&padinfo);
 
         if (padinfo.status[0] && ioPadGetData(0, &paddata) == 0)
         {
-            // change section
-            if (PRESSED_NOW(BTN_DOWN))
+            if (currentState == STATE_ERROR_DIALOG)
             {
-                cycle_state(&currentState, 1);
-            }
-            else if (PRESSED_NOW(BTN_UP))
-            {
-                cycle_state(&currentState, -1);
-            }
-            // change kvp in section
-            else if (PRESSED_NOW(BTN_RIGHT) || PRESSED_NOW(BTN_LEFT))
-            {
-                int dir = PRESSED_NOW(BTN_RIGHT) ? 1 : -1;
-
-                switch (currentState)
+                if (PRESSED_NOW(BTN_CROSS) || PRESSED_NOW(BTN_CIRCLE))
                 {
-                case STATE_GAME_SECTION:
-                    cycle_index(&cartIndex, cartCount, dir);
-                    break;
+                    if(!error_recoverable)
+                        finalize();
 
-                case STATE_OVERLAY_SECTION:
-                    cycle_index(&overlayIndex, overlayCount, dir);
-                    break;
-
-                case STATE_OPTIONS_SECTION:
-                    cycle_index(&optionIndex, ARRAY_SIZE(option_options), dir);
-                    break;
-
-                case STATE_LAUNCH_SECTION:
-                    break;
+                    emu_exit_code = 0;
+                    currentState = STATE_GAME_SECTION;
                 }
             }
-            // open dialog to change option value
-            else if (PRESSED_NOW(BTN_CROSS) && currentState == STATE_OPTIONS_SECTION)
+            else
             {
-                edit_option(optionIndex);
-            }
-            else if (PRESSED_NOW(BTN_CROSS) && currentState == STATE_LAUNCH_SECTION)
-            {
-                load_emulator();
-                return 0;
-            }
-            else if (PRESSED_NOW(BTN_SELECT))
-            {
-                running = 0;
+                if (PRESSED_NOW(BTN_DOWN))
+                {
+                    cycle_state(&currentState, 1);
+                }
+                else if (PRESSED_NOW(BTN_UP))
+                {
+                    cycle_state(&currentState, -1);
+                }
+                // change kvp in section
+                else if (PRESSED_NOW(BTN_RIGHT) || PRESSED_NOW(BTN_LEFT))
+                {
+                    int dir = PRESSED_NOW(BTN_RIGHT) ? 1 : -1;
+
+                    if(currentState == STATE_GAME_SECTION)
+                        cycle_index(&cartIndex, cartCount, dir);
+                    else if(currentState == STATE_OVERLAY_SECTION)
+                        cycle_index(&overlayIndex, overlayCount, dir);
+                    else if(currentState == STATE_OPTIONS_SECTION)
+                        cycle_index(&optionIndex, ARRAY_SIZE(option_options), dir);
+                    else if (currentState == STATE_LAUNCH_SECTION)
+                        cycle_index(&launchIndex, 5, dir);
+                }
+                // open dialog to change option value
+                else if (PRESSED_NOW(BTN_CROSS) && currentState == STATE_OPTIONS_SECTION)
+                {
+                    edit_option(optionIndex);
+                }
+                // launch emulator
+                else if (PRESSED_NOW(BTN_CROSS) && currentState == STATE_LAUNCH_SECTION)
+                {
+                    if (launchIndex == 0) finalize();               //exit
+                    else if (launchIndex == 1)                      //about
+                    {
+                        int ret = cart_index("about.vec");
+
+                        if(ret > 0)
+                        {
+                            cartIndex = ret;
+                            save_config();
+                            load_emulator();
+                        } else
+                        {
+                            throw_error(ERROR_TYPE_MENU, MENU_ABOUT_CART_NOT_FOUND, true);
+                        }
+                    }
+                    else if (launchIndex == 2)                      //controls
+                    {
+                        int ret = cart_index("controls.vec");
+
+                        if(ret > 0)
+                        {
+                            cartIndex = ret;
+                            save_config();
+                            load_emulator();
+                        } else
+                        {
+                            throw_error(ERROR_TYPE_MENU, MENU_CONTROLS_CART_NOT_FOUND, true);
+                        }
+                    }
+                    else if (launchIndex == 3) reload_menu();       //reload
+                    else if (launchIndex == 4) load_emulator();     //start
+                }
             }
         }
-        // blah
+
 
         // reset pad events
         lastPad = (PadButtons){
@@ -936,16 +1202,27 @@ int main(int argc, char **argv)
             .BTN_RIGHT = paddata.BTN_RIGHT,
             .BTN_SELECT = paddata.BTN_SELECT,
             .BTN_START = paddata.BTN_START};
+        
+        tick += 0.016f;
+        tiny3d_Clear(BLACK, TINY3D_CLEAR_ALL);
+        tiny3d_AlphaTest(1, 0x10, TINY3D_ALPHA_FUNC_GEQUAL);
 
-        draw_header();
-
+        if(currentState == STATE_ERROR_DIALOG)
+        {
+            if(!error_dialog_buzzer) sys_ring_buzzer(1);
+            draw_error_dialog();
+        }
         
 
+        draw_header();
         draw_game_section();
         draw_overlay_section();
         draw_option_section();
         draw_footer();
+
+        tiny3d_Flip();
     }
 
+    sysProcessExitSpawn2("/dev_hdd0/game/PSL145310/RELOAD.SELF", NULL, NULL, NULL, 0, 1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
     return 0;
 }

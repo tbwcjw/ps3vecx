@@ -10,8 +10,6 @@ endif
 # debug / release
 RELEASE = debug
 
-
-
 #---------------------------------------------------------------------------------
 #  TITLE, APPID, CONTENTID, ICON0 SFOXML before ppu_rules.
 #---------------------------------------------------------------------------------
@@ -44,9 +42,12 @@ SCETOOL_FLAGS	+=	--self-cap-flags 0000000000000000000000000000000000000000000000
 TARGET		:=	ps3vecX
 BUILD		:=	build
 SOURCES		:=	source
-DATA		:=  
+DATA		:=  data
 SHADERS		:= 
 INCLUDES	:=	include source
+COMMON_DIR	:=	$(abspath $(CURDIR)/../common)
+COMMON_SRC	:=	$(COMMON_DIR)/source
+COMMON_INC	:=	$(COMMON_DIR)/include
 PKGFILES	:=	$(CURDIR)/pkgfiles
 
 #---------------------------------------------------------------------------------
@@ -54,8 +55,8 @@ PKGFILES	:=	$(CURDIR)/pkgfiles
 # (link order matters: -lrsx before -lgcm_sys)
 #---------------------------------------------------------------------------------
 LIBS		:=	-lsysfs -lfreetype -lio \
-				-lz -ltiny3d -lgcm_sys -lsysutil -lrt \
-				 -lm
+				-lz -ltiny3d -lgcm_sys -lsysutil -lsysmodule -lpngdec  -lrt \
+				 -lm 
 
 ifeq ($(RELEASE),debug)
 	LIBS += -lnet -lsysmodule 
@@ -95,6 +96,7 @@ export OUTPUT	:=	$(CURDIR)/$(TARGET)
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
 					$(foreach dir,$(DATA),$(CURDIR)/$(dir)) \
+					$(COMMON_SRC)
 
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
@@ -103,7 +105,8 @@ export BUILDDIR	:=	$(CURDIR)/$(BUILD)
 #---------------------------------------------------------------------------------
 # automatically build a list of object files for our project
 #---------------------------------------------------------------------------------
-CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
+CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c))) \
+				$(notdir $(wildcard $(COMMON_SRC)/*.c))
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.S)))
@@ -123,12 +126,15 @@ export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
 					$(addsuffix .o,$(VPOFILES)) \
 					$(addsuffix .o,$(FPOFILES)) \
 					$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) \
-					$(sFILES:.s=.o) $(SFILES:.S=.o)
+					$(sFILES:.s=.o) $(SFILES:.S=.o) \
+					$(BINFILES:.bin=.bin.o)
+
 
 #---------------------------------------------------------------------------------
 # build a list of include paths
 #---------------------------------------------------------------------------------
 export INCLUDE	:=	$(foreach dir,$(INCLUDES), -I$(CURDIR)/$(dir)) \
+					-I$(COMMON_INC) \
 					$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
 					$(LIBPSL1GHT_INC) \
 					-I$(CURDIR)/$(BUILD) -I$(PORTLIBS)/include
@@ -183,6 +189,11 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 $(OUTPUT).self: $(OUTPUT).elf
 $(OUTPUT).elf:	$(OFILES)
+$(OFILES): $(VCGFILES)
+$(CFILES:.c=.o): $(BINHEADERS)
+$(BINHEADERS): %_bin.h: %.bin.o
+
+export BINHEADERS := $(BINFILES:.bin=_bin.h)
 
 #---------------------------------------------------------------------------------
 # This rule links in binary data with the .bin extension
