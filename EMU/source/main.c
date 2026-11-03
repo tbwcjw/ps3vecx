@@ -422,6 +422,8 @@ void finalize(int ret)
         ret_arg,
         NULL};
 
+    audio_shutdown();
+    
     if (running)
         running = 0;
 

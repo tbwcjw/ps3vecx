@@ -16,22 +16,14 @@ SYS_PROCESS_PARAM(MENU_PRIO, MENU_STACKSIZE);
 #define BLACK 0x00000000
 #define LIGHT_GREY 0x878787FF
 #define DARK_GREY 0x5A5A5AFF
-#define TRIANGLE 0x40E2A0FF
 #define CIRCLE 0xFF6666FF
 #define CROSS 0x7CB2E8FF
-#define SQUARE 0xFF69F8FF
 #define YELLOW 0xFFFF00FF
 
 #define FONT_DEFAULT FONT_SMALL
 #define FONT_SMALL SetFontSize(8, 13)
 #define FONT_LARGE SetFontSize(12, 20)
-#define FONT_XLARGE SetFontSize(14, 23)
-#define FONT_XXLARGE SetFontSize(16, 26)
-#define FONT_HUGE SetFontSize(18, 30)
 #define FONT_XHUGE SetFontSize(20, 34)
-#define FONT_GIANT SetFontSize(24, 40)
-#define FONT_TITLE SetFontSize(28, 46)
-#define FONT_HEADER SetFontSize(32, 52)
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -106,7 +98,6 @@ typedef struct
 
 static PadButtons lastPad = {0};
 #define PRESSED_NOW(btn) (paddata.btn && !lastPad.btn)
-#define RELEASED_NOW(btn) (!paddata.btn && lastPad.btn)
 
 static volatile int error_dialog_buzzer = 0; 
 static volatile int callback_exit = 0;
@@ -1005,8 +996,6 @@ static void sysutil_cb(u64 status, u64 param, void *usrdata)
         finalize();
     }
 }
-
-void tbi(void) {}
 
 int cart_index(char* filename)
 {

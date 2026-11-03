@@ -5,7 +5,7 @@
 #include <audio/audio.h>
 #include <sys/event_queue.h>
 #include <sys/thread.h>
-
+ 
 #include "e8910.h"
 #include "vecx.h"
 
