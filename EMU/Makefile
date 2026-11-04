@@ -146,7 +146,7 @@ export OUTPUT	:=	$(CURDIR)/$(TARGET)
 
 
 #---------------------------------------------------------------------------------
-$(BUILD):
+$(BUILD): clean
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 

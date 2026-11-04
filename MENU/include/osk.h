@@ -6,6 +6,5 @@
 void utf16_to_8(u16 *stw, u8 *stb);
 void utf8_to_16(u8 *stb, u16 *stw);
 int get_osk_string(char *caption, char *str, int len);
-int get_osk_int(char *caption, int *value);
 
 #endif //OSK_H

@@ -150,8 +150,7 @@ export OUTPUT	:=	$(CURDIR)/$(TARGET)
 
 
 #---------------------------------------------------------------------------------
-$(BUILD):
-	
+$(BUILD): clean
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 #copy emu files to usrdir here
@@ -167,8 +166,6 @@ run: $(BUILD)
 
 #---------------------------------------------------------------------------------
 pkg: $(BUILD) $(OUTPUT).pkg
-	
-	
 	
 #---------------------------------------------------------------------------------
 release: clean pkg

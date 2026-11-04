@@ -96,6 +96,8 @@ typedef struct
     int BTN_RIGHT;
     int BTN_SELECT;
     int BTN_START;
+    int BTN_R1;
+    int BTN_L1;
 } PadButtons;
 
 static PadButtons lastPad = {0};
@@ -303,6 +305,46 @@ void draw_arrow(float x, float y, float size, float thickness, int direction, ui
 
     tiny3d_End();
 }
+
+
+void draw_scaled_string(int x, int y, int startW, int startH, int minW, int minH, int maxWidth, const char *format, ...)
+{
+    char text[256];
+
+    va_list args;
+    va_start(args, format);
+    vsnprintf(text, sizeof(text), format, args);
+    va_end(args);
+
+    int w = startW;
+    int h = startH;
+    SetFontSize(w, h);
+
+    int textWidth = strlen(text) * GetFontWidth();
+
+    if (textWidth > maxWidth)
+    {
+        float scale = (float)maxWidth / textWidth;
+
+        w = (int)(startW * scale);
+        h = (int)(startH * scale);
+
+        if (w < minW)
+        {
+            w = minW;
+            h = minH;
+        }
+
+        SetFontSize(w, h);
+    }
+
+    int dY = y - (h / 2);
+
+    SetFontAutoCenter(1);
+    DrawFormatString(x, dY, "%s", text);
+    SetFontAutoCenter(0);
+}
+
 void draw_header()
 {
     FONT_SMALL;
@@ -313,6 +355,8 @@ void draw_header()
     DrawString(671, 0, "github:tbwcjw/ps3vecX");
     draw_horizontal_line(15.0f, 1.0f, WHITE);
 }
+
+
 void draw_game_section()
 {
     uint32_t color = currentState == STATE_GAME_SECTION
@@ -323,18 +367,15 @@ void draw_game_section()
     draw_arrow(810.0, 80.0, 20, 5, 1, color);
 
     SetFontColor(WHITE, BLACK);
-    SetFontAutoCenter(1);
-    FONT_XHUGE;
-    DrawFormatString(355, 70, "%s", cart_options[cartIndex].filename);
+    draw_scaled_string(355, 90, 20, 34, 8, 13, 720, "%s", cart_options[cartIndex].filename);
 
-    FONT_LARGE;
+    
     SetFontColor(LIGHT_GREY, BLACK);
-    DrawFormatString(355, 115, "%s", cart_options[cartIndex].header);
-
-    SetFontAutoCenter(0);
+    draw_scaled_string(355, 120, 12, 20, 8, 13, 720, "%s", cart_options[cartIndex].header);
 
     draw_horizontal_line(174.0f, 2.0f, WHITE);
 }
+
 void draw_overlay_section()
 {
     uint32_t color = currentState == STATE_OVERLAY_SECTION
@@ -348,14 +389,10 @@ void draw_overlay_section()
         (overlay_options[overlayIndex].filename &&
          overlay_options[overlayIndex].filename[0] != '\0')
             ? overlay_options[overlayIndex].filename
-            : "NO OVERLAY";
+            : "no overlay";
 
     SetFontColor(WHITE, BLACK);
-    SetFontAutoCenter(1);
-    FONT_XHUGE;
-    DrawFormatString(355, 234, "%s", display_name);
-
-    SetFontAutoCenter(0);
+    draw_scaled_string(355, 255, 20, 34, 8, 13, 720, "%s", display_name);
 
     draw_horizontal_line(333.0f, 1.0f, WHITE);
 }
@@ -805,7 +842,7 @@ static int load_carts(void)
     cartCount = count;
     cartIndex = 0;
 
-    printf("Loaded %d cartridges\n", cartCount);
+    netDebug("Loaded %d cartridges\n", cartCount);
 
     return 0;
 
@@ -887,7 +924,7 @@ static int load_overlays(void)
 
     overlayIndex = 0;
 
-    printf("Loaded %d overlays\n", overlayCount);
+    netDebug("Loaded %d overlays", overlayCount);
 
     return 0;
 
@@ -1013,7 +1050,7 @@ int cart_index(char* filename)
     return -1;
 }
 
-static int padAnyPressed(padInfo *info, padData *data)
+int padAnyPressed(padInfo *info, padData *data)
 {
     static u16 prevHeld[MAX_PORT_NUM];
     int any = 0;
@@ -1134,8 +1171,6 @@ int main(int argc, char **argv)
 
         if (padinfo.status[0] && ioPadGetData(0, &paddata) == 0)
         {
-
-            
             if (currentState == STATE_ERROR_DIALOG)
             {
                 if (PRESSED_NOW(BTN_CROSS) || PRESSED_NOW(BTN_CIRCLE))
@@ -1158,9 +1193,9 @@ int main(int argc, char **argv)
                     cycle_state(&currentState, -1);
                 }
                 // change kvp in section
-                else if (PRESSED_NOW(BTN_RIGHT) || PRESSED_NOW(BTN_LEFT))
+                else if (PRESSED_NOW(BTN_RIGHT) || PRESSED_NOW(BTN_LEFT) || PRESSED_NOW(BTN_R1) || PRESSED_NOW(BTN_L1))
                 {
-                    int dir = PRESSED_NOW(BTN_RIGHT) ? 1 : -1;
+                    int dir = (PRESSED_NOW(BTN_RIGHT) || PRESSED_NOW(BTN_R1)) ? 1 : -1;
 
                     if(currentState == STATE_GAME_SECTION)
                         cycle_index(&cartIndex, cartCount, dir);
@@ -1228,7 +1263,9 @@ int main(int argc, char **argv)
             .BTN_LEFT = paddata.BTN_LEFT,
             .BTN_RIGHT = paddata.BTN_RIGHT,
             .BTN_SELECT = paddata.BTN_SELECT,
-            .BTN_START = paddata.BTN_START};
+            .BTN_START = paddata.BTN_START,
+            .BTN_R1 = paddata.BTN_R1,
+            .BTN_L1 = paddata.BTN_L1};
         
         tick += 0.016f;
         tiny3d_Clear(BLACK, TINY3D_CLEAR_ALL);

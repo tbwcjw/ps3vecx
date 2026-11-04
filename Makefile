@@ -44,7 +44,7 @@ updatezip: pkg
 uploadpkg: pkg
 	./uploadpkg.sh "$(PS3_ADDR)" "$(LOCAL_FILE)" "$(REMOTE_DIR)"
 
-installpkg:
+installpkg: uploadpkg
 	curl -s -o /dev/null "http://$(PS3_ADDR)/install.ps3$(REMOTE_DIR)/$(PACKAGE_NAME)_$(VERSION).pkg"
 
 clean:
