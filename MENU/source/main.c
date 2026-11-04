@@ -7,8 +7,10 @@
 #include <tiny3d.h>
 #include <libfont2.h>
 
+#include "alert.h"
 #include "osk.h"
 #include "font.h"
+
 
 SYS_PROCESS_PARAM(MENU_PRIO, MENU_STACKSIZE);
 
@@ -99,7 +101,7 @@ typedef struct
 static PadButtons lastPad = {0};
 #define PRESSED_NOW(btn) (paddata.btn && !lastPad.btn)
 
-static volatile int error_dialog_buzzer = 0; 
+static volatile int error_dialog_alert = 0; 
 static volatile int callback_exit = 0;
 static volatile int running = 1;
 static float tick = 0.0f;
@@ -163,7 +165,7 @@ static volatile bool error_recoverable = 1;
 void throw_error(ErrorType type, int code, bool recoverable)
 {
     current_error_type = type;
-    error_dialog_buzzer = 0;
+    error_dialog_alert = 0;
 
     if (type == ERROR_TYPE_EMULATOR)
         emu_exit_code = code;
@@ -376,7 +378,7 @@ void draw_rect(float x, float y, float w,  float h, u32 color, float z) {
 
 void draw_error_dialog()
 {
-    error_dialog_buzzer = 1;
+    error_dialog_alert = 1;
 
     SetFontAutoCenter(1);
     FONT_LARGE;
@@ -517,6 +519,7 @@ static void edit_option(int index)
     buf[OSK_BUF_LEN - 1] = '\0';
 
     get_osk_string(option_options[index].osk_helper, buf, OSK_BUF_LEN);
+    
 
     //parse the result back into the option
     if (index == 4)
@@ -971,6 +974,7 @@ void finalize()
     
 }
 
+//unused
 int sys_ring_buzzer(int beeps) {
     if (beeps < 1) beeps = 1;
     if (beeps > 3) beeps = 3;
@@ -1009,6 +1013,32 @@ int cart_index(char* filename)
     return -1;
 }
 
+static int padAnyPressed(padInfo *info, padData *data)
+{
+    static u16 prevHeld[MAX_PORT_NUM];
+    int any = 0;
+
+    ioPadGetInfo(info);
+
+    for (u32 port = 0; port < MAX_PORT_NUM; port++)
+    {
+        if (!info->status[port] || ioPadGetData(port, data) != 0) {
+            prevHeld[port] = 0;
+            continue;
+        }
+
+        u16 held = (data->button[PAD_BUTTON_OFFSET_DIGITAL1] & 0xFF) |
+                   ((data->button[PAD_BUTTON_OFFSET_DIGITAL2] & 0xFF) << 8);
+
+        if (held & ~prevHeld[port])
+            any = 1;
+
+        prevHeld[port] = held;
+    }
+
+    return any;
+}
+
 int main(int argc, char **argv)
 {
     sysUtilRegisterCallback(0, sysutil_cb, NULL);
@@ -1028,6 +1058,7 @@ int main(int argc, char **argv)
     SetFontZ(65535.0f);
 
     ioPadInit(7);
+    
     padInfo padinfo;
     padData paddata;
     memset(&paddata, 0, sizeof(paddata));
@@ -1097,9 +1128,14 @@ int main(int argc, char **argv)
     while (running)
     {
         ioPadGetInfo(&padinfo);
+        
+        if(padAnyPressed(&padinfo, &paddata))
+            play_alert(SOUND_OK);
 
         if (padinfo.status[0] && ioPadGetData(0, &paddata) == 0)
         {
+
+            
             if (currentState == STATE_ERROR_DIALOG)
             {
                 if (PRESSED_NOW(BTN_CROSS) || PRESSED_NOW(BTN_CIRCLE))
@@ -1151,6 +1187,7 @@ int main(int argc, char **argv)
                         if(ret > 0)
                         {
                             cartIndex = ret;
+                            overlayIndex = 0;
                             save_config();
                             load_emulator();
                         } else
@@ -1165,6 +1202,7 @@ int main(int argc, char **argv)
                         if(ret > 0)
                         {
                             cartIndex = ret;
+                            overlayIndex = 0;
                             save_config();
                             load_emulator();
                         } else
@@ -1198,7 +1236,9 @@ int main(int argc, char **argv)
 
         if(currentState == STATE_ERROR_DIALOG)
         {
-            if(!error_dialog_buzzer) sys_ring_buzzer(1);
+            if(!error_dialog_alert) 
+                play_alert(SOUND_ERROR);
+
             draw_error_dialog();
         }
         

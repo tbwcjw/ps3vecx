@@ -61,7 +61,7 @@ static long alg_curr_x; /* current x position */
 static long alg_curr_y; /* current y position */
 
 enum {
-	VECTREX_PDECAY	= 24,      /* phosphor decay rate */
+	VECTREX_PDECAY	= 30,      /* phosphor decay rate */
 
 	/* number of 6809 cycles before a frame redraw */
 
