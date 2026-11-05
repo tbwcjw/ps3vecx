@@ -13,7 +13,7 @@ RELEASE = debug
 #---------------------------------------------------------------------------------
 #  TITLE, APPID, CONTENTID, ICON0 SFOXML before ppu_rules.
 #---------------------------------------------------------------------------------
-TITLE		    := VecX
+TITLE		    := ps3vecx - Vectrex Emulator
 APPID		    := PS3VECX01
 CONTENTID	    := UP0001-$(APPID)_00-0000000000000000
 PKGFILES	    := $(CURDIR)/pkgfiles

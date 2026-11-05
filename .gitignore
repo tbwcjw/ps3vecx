@@ -6,6 +6,8 @@ tags
 *.pkg
 *.zip
 *.elf
+VECTREXASM/logo.vec
+VECTREXASM/logo
 */build/*.o
 */build/*.d
 */build/*.elf

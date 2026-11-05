@@ -31,7 +31,7 @@
 		279
 	</value>
 	<value name="TITLE" type="string">
-		VecX Vectrex Emulator
+		ps3vecx - Vectrex Emulator
 	</value>
 	<value name="TITLE_ID" type="string">
 		PS3VECX01

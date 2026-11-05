@@ -4,6 +4,7 @@ PS3_ADDR ?= 10.0.0.225
 PACKAGE_NAME ?= ps3vecX
 LOCAL_FILE ?= $(CURDIR)/$(PACKAGE_NAME)_$(VERSION).pkg
 REMOTE_DIR ?= /dev_hdd0/packages
+UPDATE_HISTORY ?= updatehistory.txt
 
 COMMON_DIR := $(CURDIR)/common
 export COMMON_DIR
@@ -22,7 +23,10 @@ build:
 version:
 	@echo $(VERSION)
 
+test: 
+	
 pkg: build
+	python3 hisgen.py $(UPDATE_HISTORY) -o MENU/pkgfiles/PARAM.HIS --tz Etc/GMT+5
 	mkdir -p MENU/pkgfiles/USRDIR
 	cp EMU/ps3vecX_EMU.self MENU/pkgfiles/USRDIR/VECXEMU.SELF
 	cp MENU/ps3vecX.self MENU/pkgfiles/USRDIR/VECXMENU.SELF
