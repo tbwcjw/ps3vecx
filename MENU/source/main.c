@@ -58,6 +58,13 @@ typedef struct
     float value;
 } OptionOption;
 
+static OptionOption option_options[] = {
+    {"overlay alpha", "Overlay Alpha: Between 0 and 255",255},
+    {"line thickness", "Line Thickness: Between 1 and 5",2},
+    {"rotation", "Rotation: 0 = Normal, 1 = Clockwise, -1 = Counterclockwise", 0},
+    {"vsync", "VSync: 0 or 1", 1},
+    {"audio gain", "Audio Gain: Between 0.25 and 5.0", 1.0f},
+    {"phosphor decay", "Phosphor Decay: Between 1 and 90 (default 30)"}};
 
 static int cartIndex = 0;
 static int cartCount = 0;
@@ -68,20 +75,13 @@ static int overlayCount = 0;
 static OverlayOption *overlay_options = NULL;
 
 static int optionIndex = 0;
-static OptionOption option_options[] = {
-    {"overlay alpha", "Overlay Alpha: Between 0 and 255",255},
-    {"line thickness", "Line Thickness: Between 1 and 5",2},
-    {"rotation", "Rotation: 0 = Normal, 1 = Clockwise, -1 = Counterclockwise", 0},
-    {"vsync", "VSync: 0 or 1", 1},
-    {"audio gain", "Audio Gain: Between 0.25 and 5.0", 1.0f}};
-
 static int launchIndex = 3;
 
 #define OSK_BUF_LEN 8
 static char osk_option_buf[ARRAY_SIZE(option_options)][OSK_BUF_LEN];
 
-
 Config config = {0};
+
 
 // pad
 typedef struct
@@ -118,7 +118,7 @@ char *emu_exit_code_string()
         case EMU_CONFIG_ERROR:  return "Configuration file failed to parse";
         case EMU_ROM_NOT_FOUND: return "Vectrex ROM (BIOS) was not found";
         case EMU_AUDIO_INIT:    return "Failed to initialize audio thread";
-        case EMU_VECX_INIT:    return "Failed to initialize vecx emulator";
+        case EMU_VECX_INIT:     return "Failed to initialize vecx emulator";
         default:                return "An unknown error occurred";
     }
 }
@@ -466,6 +466,7 @@ int save_config(void)
     fprintf(f, "rotation=%d\n",  (int)option_options[2].value);
     fprintf(f, "sync=%d\n",      (int)option_options[3].value);
     fprintf(f, "gain=%.2f\n",    option_options[4].value);
+    fprintf(f, "pdecay=%d",      (int)option_options[5].value);
 
     fclose(f);
     return 0;
@@ -582,6 +583,9 @@ static void edit_option(int index)
     if (option_options[4].value < 0.2f)   option_options[4].value = 0.25f;    //gain
     if (option_options[4].value > 5.0f)   option_options[4].value = 5.0f;
 
+    if (option_options[5].value > 90) option_options[5].value = 90;
+    if (option_options[5].value < 1) option_options[5].value = 1;
+
     save_config();
 }
 
@@ -610,82 +614,6 @@ static void free_overlays(void)
     overlay_options = NULL;
     overlayCount = 0;
 }
-
-int parse_config_file(Config* config)
-{
-    FILE* file = fopen(CONFIG, "r");
-    if (file == NULL)
-    {
-        throw_error(ERROR_TYPE_MENU, MENU_CONFIG_NOT_FOUND, true);
-        file = fopen(CONFIG, "w"); //create file
-        if (file == NULL) {
-            throw_error(ERROR_TYPE_MENU, MENU_CONFIG_CREATE_ERROR, false);
-        }
-
-        fprintf(file, "rom=rom.dat\n");
-        fprintf(file, "cart=about.vec\n");
-        fprintf(file, "overlay=\n");
-        fprintf(file, "alpha=128\n");
-        fprintf(file, "thickness=2\n"); 
-        fprintf(file, "rotation=0\n");
-        fprintf(file, "sync=1\n");
-        fprintf(file, "gain=1.0\n");
-        fclose(file);
-    }
-
-    char line[128+8];
-    while (fgets(line, sizeof(line), file) != NULL)
-    {
-        line[strcspn(line, "\r\n")] = '\0';
-
-        char* sep = strchr(line, '=');
-        if (!sep) continue;
-
-        *sep = '\0';
-        char* key = line;
-        char* value = sep + 1;
-        while (*value == ' ') value++;
-
-
-        if (strcmp(key, "cart") == 0)
-        {
-            set_dynamic_string(&config->cart, value);
-        }
-        else if (strcmp(key, "rom") == 0)
-        {
-            set_dynamic_string(&config->rom, value);
-        }
-        else if (strcmp(key, "overlay") == 0)
-        {
-            set_dynamic_string(&config->overlay, value);
-        }
-        else if (strcmp(key, "alpha") == 0)
-        {
-            config->alpha = atoi(value);
-        }
-        else if (strcmp(key, "thickness") == 0)
-        {
-            config->thickness = atoi(value);
-        }
-        else if (strcmp(key, "rotation") == 0)
-        {
-            config->rotation = atoi(value);
-        }
-        else if (strcmp(key, "sync") == 0)
-        {
-            config->sync = atoi(value);
-        }
-        else if (strcmp(key, "gain") == 0)
-        {
-            config->gain = strtof(value, NULL);
-        }
-
-    }
-
-    fclose(file);
-    return 0;
-}
-
 
 static int read_cart_header(const char *path, char *out, size_t out_size)
 {
@@ -968,6 +896,7 @@ static void set_from_config(const Config *config)
     option_options[2].value = config->rotation;
     option_options[3].value = config->sync;
     option_options[4].value = config->gain;
+    option_options[5].value = config->pdecay;
     
 }
 
@@ -1147,10 +1076,15 @@ int main(int argc, char **argv)
     config.rotation = 0;
     config.sync = 1;
     config.gain = 1.0f;
+    config.pdecay = 30;
 
     //parse config file, if not found it will be created
     ret = parse_config_file(&config);
-    if(ret < 0)
+    if(ret == CONFIG_FILE_CREATED)
+        throw_error(ERROR_TYPE_MENU, MENU_CONFIG_NOT_FOUND, true);
+    else if(ret == CONFIG_CREATE_ERROR)
+        throw_error(ERROR_TYPE_MENU, MENU_CONFIG_CREATE_ERROR, false);
+    else if(ret < 0)
         throw_error(ERROR_TYPE_MENU, MENU_CONFIG_PARSE_ERROR, true);
     
     //set our config data
