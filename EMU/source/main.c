@@ -333,7 +333,7 @@ static void poll_input(void)
     if (d.BTN_SELECT && d.BTN_START)
         running = 0; // exit
     if (d.BTN_SELECT)
-        vecx_reset(5);
+        vecx_reset(config.pdecay);
     if (d.BTN_START)
     {
         if(paused)
@@ -474,76 +474,6 @@ static void sysutil_cb(u64 status, u64 param, void *usrdata)
     }
 }
 
-int parse_config_file(Config *config)
-{
-    FILE *file = fopen(CONFIG, "r");
-    if (file == NULL)
-    {
-        netDebug("FAILED TO OPEN CONFIG %s", CONFIG);
-        return -1;
-    }
-    netDebug("READING CONFIG %s", CONFIG);
-
-    char line[128 + 8];
-    while (fgets(line, sizeof(line), file) != NULL)
-    {
-        line[strcspn(line, "\r\n")] = '\0';
-        char *sep = strchr(line, '=');
-        if (!sep)
-            continue;
-
-        *sep = '\0';
-        char *key = line;
-        char *value = sep + 1;
-
-        while (*value == ' ')
-            value++;
-
-        if (strcmp(key, "cart") == 0) // cart=
-        {
-            set_dynamic_string(&config->cart, value);
-            netDebug("cart %s", value);
-        }
-        else if (strcmp(key, "rom") == 0) // rom=
-        {
-            set_dynamic_string(&config->rom, value);
-            netDebug("rom %s", value);
-        }
-        else if (strcmp(key, "overlay") == 0) // overlay=
-        {
-            set_dynamic_string(&config->overlay, value);
-            netDebug("overlay %s", value);
-        }
-        else if (strcmp(key, "alpha") == 0) // alpha=
-        {
-            config->alpha = atoi(value);
-            netDebug("alpha %d", atoi(value));
-        }
-        else if (strcmp(key, "thickness") == 0) // thickness=
-        {
-            config->thickness = atoi(value);
-            netDebug("thickness %d", atoi(value));
-        }
-        else if (strcmp(key, "rotation") == 0) // rotation=
-        {
-            config->rotation = atoi(value);
-            netDebug("rotation %d", atoi(value));
-        }
-        else if (strcmp(key, "sync") == 0) // sync=
-        {
-            config->sync = atoi(value);
-            netDebug("sync %d", atoi(value));
-        }
-        else if (strcmp(key, "gain") == 0) // gain=
-        {
-            config->gain = strtof(value, NULL);
-            netDebug("gain %f", config->gain);
-        }
-    }
-    fclose(file);
-    return 0;
-}
-
 static void wait_flip(void)
 {
     while (gcmGetFlipStatus() != 0)
@@ -570,17 +500,11 @@ int main(int argc, char **argv)
     ioPadInit(7);
 
     // set config defaults
-    config.rom = strdup("rom.dat");
-    config.cart = strdup("about.vec");
-    config.overlay = strdup("");
-    config.alpha = 128;
-    config.thickness = 2;
-    config.rotation = 0;
-    config.sync = 1;
-    config.gain = 1.0f;
+    set_config_defaults(&config);
+    
 
     // load config
-    if (parse_config_file(&config) != 0)
+    if (parse_config_file(&config) < 0)
     {
         finalize(EMU_CONFIG_ERROR); // STATE_ERROR_DIALOG - Configuration Error
     }
@@ -626,7 +550,7 @@ int main(int argc, char **argv)
             netDebug("OVERLAY FAILED READING");
     }
 
-    ret = vecx_reset(5);
+    ret = vecx_reset(config.pdecay);
     if(ret < 0)
         finalize(EMU_VECX_INIT);
 

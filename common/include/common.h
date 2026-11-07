@@ -1,13 +1,13 @@
-#ifndef _COMMON_H_
-#define _COMMON_H_
+#ifndef COMMON_H
+#define COMMON_H
 
-#define USRDIR "/dev_hdd0/game/PS3VECX01/USRDIR/"
+#include "config.h"
+
 #define EMUSELF USRDIR "VECXEMU.SELF"
 #define MENUSELF USRDIR "VECXMENU.SELF"
 #define CARTS USRDIR "carts/"
 #define ROM USRDIR "rom/"
 #define OVERLAYS USRDIR "overlays/"
-#define CONFIG USRDIR "config.txt"
 
 #define EMU_PRIO 512
 #define EMU_STACKSIZE 0x100000
@@ -36,17 +36,6 @@
 #include "debug.h"
 #include <io/pad.h>
 
-typedef struct {
-    char *rom;
-    char *cart;
-    char *overlay;
-    int alpha;
-    int thickness;
-    int rotation;
-    int sync;
-    float gain;
-} Config;
-
 typedef enum
 {
     EMU_EXIT_SUCCESS = 0,
@@ -56,25 +45,6 @@ typedef enum
     EMU_VECX_INIT = -4
 } EmuExitCode;
 
-
-int load_file(const char *path, void *dst, size_t max)
-{
-    FILE *f = fopen(path, "rb");
-    if (!f) return -1;
-    size_t n = fread(dst, 1, max, f);
-    fclose(f);
-    return (int)n;
-}
-
-static int set_dynamic_string(char** field, const char* value)
-{
-    char* copy = strdup(value);
-    if (copy == NULL)
-        return -1;
-
-    free(*field); 
-    *field = copy;
-    return 0;
-}
-
-#endif // _COMMON_H_
+int load_file(const char *path, void *dst, size_t max);
+int set_dynamic_string(char **field, const char *value);
+#endif // COMMON_H
