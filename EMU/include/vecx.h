@@ -33,7 +33,7 @@ extern long vector_erse_cnt;
 extern vector_t *vectors_draw;
 extern vector_t *vectors_erse;
 
-void vecx_reset (void);
+int vecx_reset (int pdecay);
 void vecx_emu (long cycles);
 
 #endif

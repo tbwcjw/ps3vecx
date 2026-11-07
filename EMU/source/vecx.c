@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "debug.h"
 #include "e6809.h"
 #include "vecx.h"
 #include "osint.h"
@@ -60,22 +63,12 @@ static long alg_dy;     /* delta y */
 static long alg_curr_x; /* current x position */
 static long alg_curr_y; /* current y position */
 
-enum {
-	VECTREX_PDECAY	= 30,      /* phosphor decay rate */
+static unsigned nvectors_alloc;
+static unsigned fcycles_init;
+static unsigned vector_cnt;
 
-	/* number of 6809 cycles before a frame redraw */
 
-	FCYCLES_INIT    = VECTREX_MHZ / VECTREX_PDECAY,
-
-	/* max number of possible vectors that maybe on the screen at one time.
-	 * one only needs VECTREX_MHZ / VECTREX_PDECAY but we need to also store
-	 * deleted vectors in a single table
-	 */
-
-	VECTOR_CNT		= VECTREX_MHZ / VECTREX_PDECAY,
-
-	VECTOR_HASH     = 65521
-};
+#define VECTOR_HASH 65521
 
 static unsigned alg_vectoring; /* are we drawing a vector right now? */
 static long alg_vector_x0;
@@ -88,11 +81,10 @@ static unsigned char alg_vector_color;
 
 long vector_draw_cnt;
 long vector_erse_cnt;
-static vector_t vectors_set[2 * VECTOR_CNT];
+static long vector_hash[VECTOR_HASH];
+vector_t *vectors_set;
 vector_t *vectors_draw;
 vector_t *vectors_erse;
-
-static long vector_hash[VECTOR_HASH];
 
 static long fcycles;
 
@@ -519,8 +511,33 @@ void write8 (unsigned address, unsigned char data)
 	}
 }
 
-void vecx_reset (void)
+int vecx_reset (int pdecay)
 {
+    if (pdecay <= 0 || pdecay > VECTREX_MHZ) {
+        netDebug("vecx_reset rejected pdecay %d", pdecay);
+        return -1;
+    }
+
+    unsigned new_vector_cnt = VECTREX_MHZ / (unsigned)pdecay;
+    unsigned new_allocation = 2 * new_vector_cnt;
+
+    if (!vectors_set || nvectors_alloc != new_allocation) {
+        vector_t *new_vectors = calloc(new_allocation, sizeof(*new_vectors));
+        if (!new_vectors) {
+            netDebug("vecx_reset allocation failed: %u vectors", new_allocation);
+            return -1;
+        }
+
+        free(vectors_set);
+        vectors_set = new_vectors;
+        nvectors_alloc = new_allocation;
+    }
+
+    vector_cnt = new_vector_cnt;
+    fcycles_init = new_vector_cnt;
+    fcycles = fcycles_init;
+    memset(vector_hash, 0, sizeof(vector_hash));
+
 	unsigned r;
 
 	/* ram */
@@ -589,14 +606,14 @@ void vecx_reset (void)
 	vector_draw_cnt = 0;
 	vector_erse_cnt = 0;
 	vectors_draw = vectors_set;
-	vectors_erse = vectors_set + VECTOR_CNT;
+	vectors_erse = vectors_set + vector_cnt;
 
-	fcycles = FCYCLES_INIT;
 
 	e6809_read8 = read8;
 	e6809_write8 = write8;
 
 	e6809_reset ();
+	return 0;
 }
 
 /* perform a single cycle worth of via emulation.
@@ -796,6 +813,9 @@ static inline void alg_addline (long x0, long y0, long x1, long y1, unsigned cha
 			vectors_erse[index].color = VECTREX_COLORS;
 		}
 
+		if (vector_draw_cnt >= (long)vector_cnt)
+			return;
+
 		vectors_draw[vector_draw_cnt].x0 = x0;
 		vectors_draw[vector_draw_cnt].y0 = y0;
 		vectors_draw[vector_draw_cnt].x1 = x1;
@@ -939,7 +959,7 @@ void vecx_emu (long cycles)
 		if (fcycles < 0) {
 			vector_t *tmp;
 
-			fcycles += FCYCLES_INIT;
+			fcycles += fcycles_init;
 			osint_render ();
 
 			/* everything that was drawn during this pass now now enters

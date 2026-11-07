@@ -333,9 +333,19 @@ static void poll_input(void)
     if (d.BTN_SELECT && d.BTN_START)
         running = 0; // exit
     if (d.BTN_SELECT)
-        vecx_reset(); // reset
+        vecx_reset(5);
     if (d.BTN_START)
-        paused = paused == 1 ? 0 : 1; // pause
+    {
+        if(paused)
+        {
+            audio_unpause();
+            paused = 0;
+        } else 
+        {
+            audio_pause();
+            paused = 1;
+        }
+    }
     if (d.BTN_L1)                     // fast forward
         speed_multiplier = (speed_multiplier == 20) ? 40 : 20;
 
@@ -422,7 +432,7 @@ void finalize(int ret)
         ret_arg,
         NULL};
 
-    audio_shutdown();
+    audio_cleanup();
     
     if (running)
         running = 0;
@@ -454,7 +464,6 @@ static void sysutil_cb(u64 status, u64 param, void *usrdata)
     {
         paused = 1;
         audio_pause();
-        gcmSetFlipMode(-1);
     }
 
     if (status == SYSUTIL_MENU_CLOSE)
@@ -617,17 +626,18 @@ int main(int argc, char **argv)
             netDebug("OVERLAY FAILED READING");
     }
 
-    int aud = audio_init();
-    if (aud != 0)
+    ret = vecx_reset(5);
+    if(ret < 0)
+        finalize(EMU_VECX_INIT);
+
+
+    ret = audio_init();
+    if (ret != 0)
         finalize(EMU_AUDIO_INIT);
 
     audio_set_gain(config.gain);
 
     netDebug("audio_init");
-
-    // reset emulator
-    vecx_reset();
-    netDebug("reset");
 
     u64 last = sysGetSystemTime();
     u64 emu_budget = 0;
@@ -657,6 +667,7 @@ int main(int argc, char **argv)
         else
         {
             emu_budget = 0;
+            dirty = 1; //xmb flicker fix
         }
 
         if (dirty)

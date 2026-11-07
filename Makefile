@@ -41,6 +41,7 @@ updatezip: pkg
 	cp MENU/build/pkg/USRDIR/EBOOT.BIN tmp/PS3VECX01/USRDIR/EBOOT.BIN
 	cp MENU/build/pkg/USRDIR/VECXEMU.SELF tmp/PS3VECX01/USRDIR/VECXEMU.SELF
 	cp MENU/build/pkg/USRDIR/VECXMENU.SELF tmp/PS3VECX01/USRDIR/VECXMENU.SELF
+	cp MENU/pkgfiles/PARAM.HIS tmp/PS3VECX01/PARAM.HIS
 
 	cd tmp && zip -r ../UPDATE_$(VERSION).zip PS3VECX01
 	rm -rf tmp
@@ -55,5 +56,4 @@ clean:
 	$(MAKE) -C EMU clean
 	$(MAKE) -C MENU clean
 	rm -f $(PACKAGE_NAME)_$(VERSION).pkg
-	rm -f UPDATE_$(VERSION).zip
 	rm -rf tmp

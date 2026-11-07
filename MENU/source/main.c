@@ -824,15 +824,8 @@ static int load_carts(void)
         if (!options)
             return -1;
 
-        //todo - dummy option
-        if (set_dynamic_string(&options[0].filename, "") < 0 || set_dynamic_string(&options[0].header, "NO CART") < 0)
-        {
-            free(options[0].filename);
-            free(options[0].header);
-            free(options);
-            return -1;
-        }
-
+        set_dynamic_string(&options[0].filename, "no cartridge");
+        set_dynamic_string(&options[0].header, "");
         count = 1;
     }
 
