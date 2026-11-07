@@ -52,7 +52,8 @@ typedef enum
     EMU_EXIT_SUCCESS = 0,
     EMU_CONFIG_ERROR = -1,
     EMU_ROM_NOT_FOUND = -2,
-    EMU_AUDIO_INIT = -3
+    EMU_AUDIO_INIT = -3,
+    EMU_VECX_INIT = -4
 } EmuExitCode;
 
 

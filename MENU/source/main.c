@@ -118,6 +118,7 @@ char *emu_exit_code_string()
         case EMU_CONFIG_ERROR:  return "Configuration file failed to parse";
         case EMU_ROM_NOT_FOUND: return "Vectrex ROM (BIOS) was not found";
         case EMU_AUDIO_INIT:    return "Failed to initialize audio thread";
+        case EMU_VECX_INIT:    return "Failed to initialize vecx emulator";
         default:                return "An unknown error occurred";
     }
 }

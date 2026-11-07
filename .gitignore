@@ -2,7 +2,9 @@
 vecx
 tags
 .vscode
-*.self
+*.[Ss][Ee][Ll][Ff]
+*.[Bb][Ii][Nn]
+*.[Hh][Ii][Ss]
 *.pkg
 *.zip
 *.elf
@@ -10,6 +12,5 @@ VECTREXASM/logo.vec
 VECTREXASM/logo
 */build/*.o
 */build/*.d
-*/build/*.elf
-*/build/*.elf.map
+*/build/*.elf.*
 .python-version
