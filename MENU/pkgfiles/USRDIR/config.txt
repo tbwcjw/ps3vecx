@@ -6,3 +6,4 @@ thickness=2
 rotation=0
 sync=1
 gain=1.0
+pdecay=24

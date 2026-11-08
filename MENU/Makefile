@@ -13,14 +13,13 @@ RELEASE = debug
 #---------------------------------------------------------------------------------
 #  TITLE, APPID, CONTENTID, ICON0 SFOXML before ppu_rules.
 #---------------------------------------------------------------------------------
-TITLE		    := ps3vecx - Vectrex Emulator
+TITLE		    := ps3vecx
 APPID		    := PS3VECX01
 CONTENTID	    := UP0001-$(APPID)_00-0000000000000000
-PKGFILES	    := $(CURDIR)/pkgfiles
 #ICON0           := $(CURDIR)/pkgfiles/ICON0.PNG
 #ICON1          := $(CURDIR)/ICON1.PAM
 #PIC1           := $(CURDIR)/PIC1.PNG
-SFOXML          := $(CURDIR)/sfo.xml
+SFOXML          := sfo.xml
 
 SCETOOL_FLAGS	?=	--self-app-version=0001000000000000  --sce-type=SELF --compress-data=TRUE --self-add-shdrs=TRUE --skip-sections=FALSE --key-revision=1 \
 					--self-auth-id=1010000001000003 --self-vendor-id=01000002 --self-fw-version=0004002000000000

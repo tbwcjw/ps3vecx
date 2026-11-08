@@ -1,9 +1,5 @@
 #include <stdio.h>
-#include <malloc.h>
 #include <string.h>
-#include <assert.h>
-#include <unistd.h>
-#include <math.h>
 #include <stdarg.h>
 
 #include <sysmodule/sysmodule.h>

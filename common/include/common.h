@@ -1,7 +1,27 @@
-#ifndef COMMON_H
-#define COMMON_H
+#ifndef _COMMON_H
+#define _COMMON_H
+
+
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <malloc.h>
+#include <math.h>
+
+#include <netinet/in.h>
+#include <net/net.h>
+#include <sys/process.h>
+#include <sysmodule/sysmodule.h>
+#include <sysutil/sysutil.h>
+#include <io/pad.h>
 
 #include "config.h"
+#include "debug.h"
+
+#define USRDIR "/dev_hdd0/game/PS3VECX01/USRDIR/"
+#define CONFIG USRDIR "config.txt"
 
 #define EMUSELF USRDIR "VECXEMU.SELF"
 #define MENUSELF USRDIR "VECXMENU.SELF"
@@ -16,25 +36,6 @@
 #define MENU_STACKSIZE 0x100000
 
 #define MAX_THICKNESS 5 //max line thickness
-
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#include <limits.h>
-#include <malloc.h>
-#include <math.h>
-#include <netinet/in.h>
-#include <net/net.h>
-#include <sys/process.h>
-#include <sysmodule/sysmodule.h>
-#include <sysutil/sysutil.h>
-
-#include "assert.h"
-#include "debug.h"
-#include <io/pad.h>
 
 typedef enum
 {

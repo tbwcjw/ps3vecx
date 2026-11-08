@@ -43,7 +43,20 @@ thickness=2             << the thickness of the lines drawn (1-5)
 rotation=0              << the rotation of the screen (0 = normal, 1 = clockwise, 2 = counter-clockwise)
 sync=1                  << vsync (0 = off, 1 = on)
 gain=1.0                << audio gain (0.25 - 5.0)
+pdecay=30               << phosphor decay (1 - 90)
 ```
+
+**Attack of the flickering skeletons?**
+Adjusting the pdecay may help with any flickering/rolling you encounter.
+
+
+TODO
+----
+* Preview overlays in the menu
+* Reconfigurable inputs
+* Validate emulated sound (Spike voice lines!)
+* Search for cart/overlay
+* One button config file reset
 
 Errors
 ------
@@ -52,6 +65,8 @@ Errors
 * **Vectrex ROM (BIOS) was not found**: The rom.dat in USRDIR/rom is missing or corrupted. Redownload it from MENU/build/pkgfiles/USRDIR/rom/rom.dat
 
 * **Failed to initialize audio thread**: The emulator failed to initialize the PPU thread for processing audio. Retry, or reboot the application, or reboot the system. (I'll work on it, honest)
+
+* **Failed to initialize vecx emulator**: Probably a bug, usually comes from an audio thread/processing error.
 
 * **Config file not found, creating it**: A bit of a non issue, recreates itself...
 

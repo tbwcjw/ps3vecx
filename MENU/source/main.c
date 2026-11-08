@@ -11,7 +11,6 @@
 #include "osk.h"
 #include "font.h"
 
-
 SYS_PROCESS_PARAM(MENU_PRIO, MENU_STACKSIZE);
 
 #define WHITE 0xFFFFFFFF
@@ -29,6 +28,7 @@ SYS_PROCESS_PARAM(MENU_PRIO, MENU_STACKSIZE);
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
+//states
 typedef enum
 {
     STATE_GAME_SECTION,
@@ -39,17 +39,6 @@ typedef enum
 } State;
 
 static State currentState = STATE_GAME_SECTION;
-
-typedef struct
-{
-    char *filename;
-    char *header;
-} CartOption;
-
-typedef struct
-{
-    char *filename;
-} OverlayOption;
 
 typedef struct
 {
@@ -64,24 +53,34 @@ static OptionOption option_options[] = {
     {"rotation", "Rotation: 0 = Normal, 1 = Clockwise, -1 = Counterclockwise", 0},
     {"vsync", "VSync: 0 or 1", 1},
     {"audio gain", "Audio Gain: Between 0.25 and 5.0", 1.0f},
-    {"phosphor decay", "Phosphor Decay: Between 1 and 90 (default 30)"}};
+    {"phosphor decay", "Phosphor Decay: Between 1 and 90 (default 24)", 24}};
+
+static int optionIndex = 0;
+static int launchIndex = 3;
+
+typedef struct
+{
+    char *filename;
+    char *header;
+} CartOption;
 
 static int cartIndex = 0;
 static int cartCount = 0;
 static CartOption *cart_options = NULL;
 
+typedef struct
+{
+    char *filename;
+} OverlayOption;
+
 static int overlayIndex = 0;
 static int overlayCount = 0;
 static OverlayOption *overlay_options = NULL;
-
-static int optionIndex = 0;
-static int launchIndex = 3;
 
 #define OSK_BUF_LEN 8
 static char osk_option_buf[ARRAY_SIZE(option_options)][OSK_BUF_LEN];
 
 Config config = {0};
-
 
 // pad
 typedef struct
@@ -161,6 +160,14 @@ typedef enum
     ERROR_TYPE_EMULATOR,
     ERROR_TYPE_MENU
 } ErrorType;
+
+const char *launch_section_items[] = {
+        "EXIT",
+        "ABOUT",
+        "CONTROLS",
+        "REFRESH",
+        "START"
+    };
 
 static ErrorType current_error_type;
 static volatile bool error_recoverable = 1;
@@ -511,14 +518,6 @@ void draw_footer()
 
     if (currentState == STATE_LAUNCH_SECTION)
     {
-        const char *items[] = {
-            "EXIT",
-            "ABOUT",
-            "CONTROLS",
-            "REFRESH",
-            "START"
-        };
-
         int positions[] = {380, 455, 540, 660, 770};
 
         for (int i = 0; i < 5; i++)
@@ -528,7 +527,7 @@ void draw_footer()
                 : WHITE;
 
             SetFontColor(color, BLACK);
-            DrawString(positions[i], 512, (char *)items[i]);
+            DrawString(positions[i], 512, (char *)launch_section_items[i]);
         }
     }
     else
@@ -617,7 +616,7 @@ static void free_overlays(void)
 
 static int read_cart_header(const char *path, char *out, size_t out_size)
 {
-    unsigned char buf[256];
+    unsigned char buf[128];
     size_t n;
     size_t used = 0;
     int strings_seen = 0;
@@ -682,7 +681,7 @@ static int load_carts(void)
 
     if (!dir)
     {
-        printf("Failed to open carts directory\n");
+        netDebug("Failed to open carts directory");
         return -1;
     }
 
@@ -935,19 +934,19 @@ void finalize()
 }
 
 //unused
-int sys_ring_buzzer(int beeps) {
-    if (beeps < 1) beeps = 1;
-    if (beeps > 3) beeps = 3;
+// int sys_ring_buzzer(int beeps) {
+//     if (beeps < 1) beeps = 1;
+//     if (beeps > 3) beeps = 3;
 
-    static const uint64_t args[3][3] = {
-        {0x1004, 0x4, 0x6},     //single beep
-        {0x1004, 0x7, 0x36},    //two beeps
-        {0x1004, 0xa, 0x1b6}    //three beeps
-    };
+//     static const uint64_t args[3][3] = {
+//         {0x1004, 0x4, 0x6},     //single beep
+//         {0x1004, 0x7, 0x36},    //two beeps
+//         {0x1004, 0xa, 0x1b6}    //three beeps
+//     };
 
-    lv2syscall3(392, args[beeps - 1][0], args[beeps - 1][1], args[beeps - 1][2]);
-    return 0;
-}
+//     lv2syscall3(392, args[beeps - 1][0], args[beeps - 1][1], args[beeps - 1][2]);
+//     return 0;
+// }
 
 static void sysutil_cb(u64 status, u64 param, void *usrdata)
 {
@@ -973,7 +972,7 @@ int cart_index(char* filename)
     return -1;
 }
 
-int padAnyPressed(padInfo *info, padData *data)
+int pad_any_pressed(padInfo *info, padData *data)
 {
     static u16 prevHeld[MAX_PORT_NUM];
     int any = 0;
@@ -1094,7 +1093,7 @@ int main(int argc, char **argv)
     {
         ioPadGetInfo(&padinfo);
         
-        if(padAnyPressed(&padinfo, &paddata))
+        if(pad_any_pressed(&padinfo, &paddata))
             play_alert(SOUND_OK);
 
         if (padinfo.status[0] && ioPadGetData(0, &paddata) == 0)

@@ -1,8 +1,5 @@
-#ifndef CONFIG_H
-#define CONFIG_H
-
-#define USRDIR "/dev_hdd0/game/PS3VECX01/USRDIR/"
-#define CONFIG USRDIR "config.txt"
+#ifndef _CONFIG_H
+#define _CONFIG_H
 
 typedef struct {
     char *rom;

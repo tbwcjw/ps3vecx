@@ -24,6 +24,7 @@ typedef struct
 
 static gcmContextData *ctx;
 static Buf bufs[2];
+
 static int draw_idx = 0;
 static int shown_idx = 1;
 static int dirty = 0;
@@ -79,7 +80,6 @@ static void set_gcm_sync(void)
 {
     if (config.sync != 0)
     {
-        netDebug("GCM SYNC ON");
         gcmSetFlipMode(GCM_FLIP_VSYNC);
     }
 }
@@ -109,8 +109,6 @@ static void video_init(void)
 }
 
 //this is pretty much as convoluted and optimized as i can get it
-
-
 static inline void plot(Buf *b, int x, int y, uint32_t c)
 {
     if ((unsigned)x >= (unsigned)b->w || (unsigned)y >= (unsigned)b->h)
