@@ -516,6 +516,18 @@ void draw_footer()
         DrawString(10, 512, "X: EDIT");
     }
 
+    if (currentState == STATE_GAME_SECTION)
+    {
+        SetFontColor(CROSS, BLACK);
+        DrawString(10,512, "X: QUICK START");
+    }
+
+    if (currentState == STATE_OVERLAY_SECTION)
+    {
+        SetFontColor(CROSS, BLACK);
+        DrawString(10,512, "X: PREVIEW");
+    }
+
     if (currentState == STATE_LAUNCH_SECTION)
     {
         int positions[] = {380, 455, 540, 660, 770};
@@ -1137,6 +1149,17 @@ int main(int argc, char **argv)
                 else if (PRESSED_NOW(BTN_CROSS) && currentState == STATE_OPTIONS_SECTION)
                 {
                     edit_option(optionIndex);
+                }
+                //quick launch from game section
+                else if (PRESSED_NOW(BTN_CROSS) && currentState == STATE_GAME_SECTION)
+                {
+                    save_config();
+                    load_emulator();
+                }
+                //preview overlay
+                else if (PRESSED_NOW(BTN_CROSS) && currentState == STATE_OVERLAY_SECTION)
+                {
+
                 }
                 // launch emulator
                 else if (PRESSED_NOW(BTN_CROSS) && currentState == STATE_LAUNCH_SECTION)
