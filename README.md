@@ -1,40 +1,47 @@
-ps3vecX - Vectrex Emulator for the PS3
-====
+ 
+<p align="center">
+  <img width="15%" src="assets/ICON0.PNG">
+</p>
 
-![Vectrex Loading Screen](screenshot0.png) ![Star Trek](screenshot1.png)
+<h2 align="center">ps3vecx</h2>
 
-Controls
---------
-Menu:
+<p align="center">
+  A PS3 Vectrex emulator based on <a href="https://github.com/jhawthorn/vecx">vecx</a>.
+</p>
 
-* D-Pad down/up change section
-* D-Pad left/right change option
-* X - change option value & select buttons
+<h2>Installation & updating</h2>
+<p>Detailed information on installation, updating and troubleshooting can be found in the <a href="https://github.com/tbwcjw/ps3vecx/wiki">wiki</a>. <strong>DO NOT</strong> delete the application via the XMB, this will remove the directory containing all of your carts, overlays and roms. Instead, download the UPDATE_X.XX.zip file from releases, and extract it into the /dev_hdd0/game/PS3VECX01 directory.</p>
 
-Emulator:
 
-* D-Pad / L Joystick - up/down/left/right
-* Start + Select - exit to menu
-* Select - restart emulator
-* Start - pause emulation
-* L1 - fast forward
-* Cross - button 1
-* Square - button 2
-* Triangle - button 3
-* Circle - button 4
+<h2>Controls</h2>
 
-Updating
---------
-**DO NOT** delete the application via the XMB, this will remove the directory containing all of your carts, overlays and roms. Instead, download the UPDATE_X.XX.zip file from releases, and extract it into the /dev_hdd0/game/PS3VECX01 directory.
+<h3>Menu:</h3>
 
-Configuration
--------------
-This application creates config.txt in the USRDIR. This file is used as the
-go-between from the menu application to the emulator application. It shouldn't
-be modified manually, the menu should take care of that. There is nothing to 
-stop you from editing it though, go mad and break stuff if you'd like.
+<ul>
+  <li>D-Pad down/up - change section</li>
+  <li>D-Pad left/right - change option</li>
+  <li>X - interact</li>
+</ul>
 
-```
+<h3>Emulator:</h3>
+
+<ul>
+  <li>D-Pad / L Joystick - up/down/left/right</li>
+  <li>Start + Select - exit to menu</li>
+  <li>Select - restart emulator</li>
+  <li>Start - pause emulation</li>
+  <li>L1 - fast forward/revert to normal speed</li>
+  <li>Cross - button 1</li>
+  <li>Square - button 2</li>
+  <li>Triangle - button 3</li>
+  <li>Circle - button 4</li>
+</ul>
+
+<h2>Configuration</h2>
+
+<p>This application creates config.txt in the USRDIR. This file is used as the go-between from the menu application to the emulator application. It shouldn't be modified manually, the menu should take care of that. There is nothing to stop you from editing it though, go mad and break stuff if you'd like.</p>
+
+<pre>
 cart=about.vec          << the cartridge to load (optional)
 rom=rom.dat             << the vectrex rom/bios (required)
 overlay=                << the overlay to use (optional)
@@ -43,91 +50,72 @@ thickness=2             << the thickness of the lines drawn (1-5)
 rotation=0              << the rotation of the screen (0 = normal, 1 = clockwise, 2 = counter-clockwise)
 sync=1                  << vsync (0 = off, 1 = on)
 gain=1.0                << audio gain (0.25 - 5.0)
-pdecay=30               << phosphor decay (1 - 90)
-```
+pdecay=24               << phosphor decay (1 - 90)
+</pre>
 
-**Attack of the flickering skeletons?**
-Adjusting the pdecay may help with any flickering/rolling you encounter.
+<h3>Attack of the flickering skeletons?</h3>
+
+<p>Adjusting the pdecay may help with any flickering/rolling you encounter</p>
+
+<h2>TODO</h2>
+
+<ul>
+  <li>Preview overlays in the menu</li>
+  <li>Reconfigurable inputs</li>
+  <li>Validate emulated sound (Spike voice lines!)</li>
+  <li>Search for cart/overlay</li>
+  <li>One button config file reset</li>
+</ul>
+
+<h2>DIY Vectrex Games</h2>
+
+<p>In making this I came across some good resources for vectrex 6809 processing. You can find some reference documents <a href="https://github.com/tbwcjw/ps3vecx/wiki/Resources">here</a>.</p>
+
+<p>The applications "boot.vec", "about.vec", and "controls.vec" were all written using these resources.</p>
+
+<h2>Building</h2>
+
+<h3>Requirements:</h3>
+
+<ul>
+  <li>PS3toolchain</li>
+  <li>PSL1GHT</li>
+  <li>PS3libraries w/ <a href="https://github.com/crystalct/tiny3D">tiny3d + libfont</a></li>
+  <li>python2.7 (use pyenv)</li>
+  <li>lwasm (if building vectrex carts)</li>
+  <li>curl, <a href="https://github.com/aldostools/webman-mod">webMAN-MOD</a> (if uploading/installing pkg remotely)</li>
+</ul>
+
+<p>The makefile within the root of the repository will build the entire project in one go. Alternatively, each part can built seperately with make -c EMU/MENU/VECTREXASM. The VERSION derives from APP_VER in MENU/sfo.xml</p>
+
+<h2>Screenshots</h2>
+<p align="center">
+<img width="50%" src="assets/ps3vecx_menu.jpg"><br>
+<i>Menu</i>
+</p>
+<p align="center">
+<img width="50%" src="assets/ps3vecx_emu.jpg"><br>
+<i>Emulator w/overlay (Frogger)</i>
+</p>
+
+<h2>Authors</h2>
+
+<p>The base vecx emulator was forked from <a href="https://github.com/jhawthorn/vecx">https://github.com/jhawthorn/vecx</a>.</p>
+
+<ul>
+  <li><a href="https://github.com/tbwcjw">tbwcjw</a> - PS3 port</li>
+  <li>Valavan Manohararajah - vecx original author</li>
+  <li><a href="https://twitter.com/jhawthorn">John Hawthorn</a> - vecx SDL port</li>
+  <li><a href="https://twitter.com/nzeemin">Nikita Zimin</a> - vecx audio</li>
+  <li><a href="https://twitter.com/simonkosua">Simon Rodriguez</a> - vecx SDL2 port</li>
+  <li><a href="https://github.com/nothings/stb/blob/master/stb_image.h">stb_image.h</a> - MIT License Sean Barrett 2017</li>
+</ul>
 
 
-TODO
-----
-* Preview overlays in the menu
-* Reconfigurable inputs
-* Validate emulated sound (Spike voice lines!)
-* Search for cart/overlay
-* One button config file reset
+<h2>License</h2>
 
-Errors
-------
-* **Configuration file failed to parse**: There's something amiss about your config.txt file. Recreate it from the config.txt found in MENU/build/pkgfiles/USRDIR/config.txt.
-
-* **Vectrex ROM (BIOS) was not found**: The rom.dat in USRDIR/rom is missing or corrupted. Redownload it from MENU/build/pkgfiles/USRDIR/rom/rom.dat
-
-* **Failed to initialize audio thread**: The emulator failed to initialize the PPU thread for processing audio. Retry, or reboot the application, or reboot the system. (I'll work on it, honest)
-
-* **Failed to initialize vecx emulator**: Probably a bug, usually comes from an audio thread/processing error.
-
-* **Config file not found, creating it**: A bit of a non issue, recreates itself...
-
-* **Failed to create a config file**: ...In theory. The system won't let us create a config.txt after not being able to find one. No sweat though; Recreate it from the config.txt found in MENU/build/pkgfiles/USRDIR/config.txt.
-
-* **Failed to read one or more carts**: This could indicate a corrupted cartridge.
-
-* **Failed to read one or more overlays**: Something about one of your overlays is incompatible or corrupted.
-
-* **Failed to find the VECXEMU.SELF**: VECXEMU.SELF from USRDIR/ has gone missing. It can be redownloaded using an UPDATE_X.XX.zip found in releases.
-
-* **Failed to find the VECXMENU.SELF**: Same as above, just for VECXMENU.SELF**.
-
-* **Failed to find about.vec**: Not strictly necessary for anything, but can be redownloaded from VECTREXASM/about.vec
-
-* **Failed to find controls.vec**: A little more necessary than the prior, if you want to know what the controls are, that is. Can be redownloaded from VECTREXASM/controls.vec
-
-Some errors are showstoppers, and will exit the application. Other's are recoverable.
-
-DIY Vectrex Games
------------------
-In making this I came across some good resources for vectrex 6809 processing. You can find some reference documents [here](RESOURCES.md).
-
-The applications "boot.vec", "about.vec", and "controls.vec" were all written using these resources. Give it a try, don't let the vectrex die...
-
-Building
---------
-Requirements:
-
-* PS3toolchain
-* PSL1GHT
-* PS3libraries w/ [tiny3d + libfont](https://github.com/crystalct/tiny3D)
-* python2.7 (use pyenv)
-* lwasm (if building vectrex carts)
-* curl, [webMAN-MOD](https://github.com/aldostools/webman-mod) (if uploading/installing pkg remotely)
-
-The makefile within the root of the repository will build the entire project in one go.
-Alternatively, each part can built seperately with make -c EMU/MENU/VECTREXASM.
-The VERSION derives from APP_VER in MENU/sfo.xml
-
-Authors
--------
-The base vecx emulator was forked from https://github.com/jhawthorn/vecx.
-
-* [tbwcjw](https://github.com/tbwcjw) - PS3 port
-* Valavan Manohararajah - vecx original author
-* [John Hawthorn](https://twitter.com/jhawthorn) - vecx SDL port
-* [Nikita Zimin](https://twitter.com/nzeemin) - vecx audio
-
-Contributors
--------
-* [Simon Rodriguez](https://twitter.com/simonkosua) - vecx SDL2 port
-
-Credits
--------
-[stb_image.h](https://github.com/nothings/stb/blob/master/stb_image.h) - MIT License Sean Barrett 2017
-
-License
--------
-* This software is licensed under the [MIT License](LICENSE-MIT.md).
-* The original vecx emulator is licensed under the [GPL V3 License](LICENSE-GPL.md);
-* This application was created with the official non-official SDK called PSL1GHT, for more information visit [http://www.psl1ght.com/](http://www.psl1ght.com/) . This is in no way associated with Sony Computer Entertainment Inc., please do not contact them for help, they will not be able to provide it.
-
-...hey, that rhymed.
+<ul>
+  <li>This software is licensed under the <a href="LICENSE-MIT.md">MIT License</a>.</li>
+  <li>The original vecx emulator is licensed under the <a href="LICENSE-GPL.md">GPL V3 License</a>.</li>
+  <li>This application was created with the official non-official SDK called PSL1GHT, for more information visit <a href="http://www.psl1ght.com/">http://www.psl1ght.com/</a>. This is in no way associated with Sony Computer Entertainment Inc., please do not contact them for help, they will not be able to provide it.</li>
+</ul>

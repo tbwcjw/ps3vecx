@@ -1,5 +1,5 @@
-@2026-05-11
-penis penis penis penis
-
-@2026-05-11 00:30
-bum bum bum bum
+@2026-11-09 13:40
+Version 1.00
+------------
+Initial release of ps3vecx.
+Issue tracking & new releases can be found at https://github.com/tbwcjw/ps3vecx/

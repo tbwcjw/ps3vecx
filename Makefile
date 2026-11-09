@@ -11,7 +11,7 @@ export COMMON_DIR
 
 SFOXML := $(CURDIR)/MENU/sfo.xml
 VERSION := $(strip $(shell xmllint --xpath 'normalize-space(/sfo/value[@name="APP_VER"]/text())' $(SFOXML)))
-RELEASE = debug
+RELEASE = release
 
 all: clean pkg updatezip uploadpkg
 

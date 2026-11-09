@@ -6,7 +6,6 @@
 #include <sysutil/osk.h>
 #include <tiny3d.h>
 #include <libfont2.h>
-#include <sys/process.h>
 
 #include "alert.h"
 #include "osk.h"
@@ -1013,7 +1012,6 @@ int main(int argc, char **argv)
     tiny3d_Init(1024 * 1024);
     tiny3d_Project2D();
     
-    netInitialize();
     netDebugInit();
     netDebug("MENU, %#x, %#x", MENU_PRIO, MENU_STACKSIZE);
 

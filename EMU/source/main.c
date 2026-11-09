@@ -482,7 +482,6 @@ static void wait_flip(void)
 
 int main(int argc, char **argv)
 {
-    netInitialize();
     netDebugInit();
     netDebug("EMU, %#x, %#x", EMU_PRIO, EMU_STACKSIZE);
 
