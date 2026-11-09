@@ -13,12 +13,6 @@ typedef struct {
     int pdecay;
 } Config;
 
-typedef enum {
-    CONFIG_LOAD_ERROR = -1,
-    CONFIG_CREATE_ERROR = -2,
-    CONFIG_FILE_CREATED = 1
-} ConfigLoadResult;
-
 int parse_config_file(Config *config);
 void set_config_defaults(Config *config);
 

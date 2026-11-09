@@ -38,18 +38,16 @@ int parse_config_file(Config *config)
     {
         file = fopen(CONFIG, "w");
         if (file == NULL)
-            return CONFIG_CREATE_ERROR; 
+            return -1; 
 
-        int write_failed = fputs(cfg_defaults, file) == EOF;
-        if (fclose(file) != 0)
-            write_failed = 1;
-        if (write_failed)
-            return CONFIG_CREATE_ERROR;
+        int ret = fputs(cfg_defaults, file) == EOF;
+        if (fclose(file) != 0 || ret < 0)
+            return -1;
 
-        result = CONFIG_FILE_CREATED;
+        result = -2;
         file = fopen(CONFIG, "r");
         if (file == NULL)
-            return CONFIG_LOAD_ERROR;
+            return -2;
     }
 
     char line[128 + 8];

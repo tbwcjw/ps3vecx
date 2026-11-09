@@ -6,6 +6,7 @@
 #include <sysutil/osk.h>
 #include <tiny3d.h>
 #include <libfont2.h>
+#include <sys/process.h>
 
 #include "alert.h"
 #include "osk.h"
@@ -155,19 +156,24 @@ char *menu_error_code_string()
     }
 }
 
+typedef struct {
+    char *title;
+    int position;
+} LaunchSectionItems;
+
+LaunchSectionItems launch_section_items[5] = {
+    {"EXIT",        380},
+    {"ABOUT",       455},
+    {"CONTROLS",    540},
+    {"REFRESH",     660},
+    {"START",       770},
+};
+
 typedef enum
 {
     ERROR_TYPE_EMULATOR,
     ERROR_TYPE_MENU
 } ErrorType;
-
-const char *launch_section_items[] = {
-        "EXIT",
-        "ABOUT",
-        "CONTROLS",
-        "REFRESH",
-        "START"
-    };
 
 static ErrorType current_error_type;
 static volatile bool error_recoverable = 1;
@@ -522,24 +528,16 @@ void draw_footer()
         DrawString(10,512, "X: QUICK START");
     }
 
-    if (currentState == STATE_OVERLAY_SECTION)
-    {
-        SetFontColor(CROSS, BLACK);
-        DrawString(10,512, "X: PREVIEW");
-    }
-
     if (currentState == STATE_LAUNCH_SECTION)
     {
-        int positions[] = {380, 455, 540, 660, 770};
-
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < ARRAY_SIZE(launch_section_items); i++)
         {
             uint32_t color = (launchIndex == i)
                 ? sin_brightness(YELLOW, 5, 96.0f)
                 : WHITE;
 
             SetFontColor(color, BLACK);
-            DrawString(positions[i], 512, (char *)launch_section_items[i]);
+            DrawString(launch_section_items[i].position, 512, (char *)launch_section_items[i].title);
         }
     }
     else
@@ -569,8 +567,6 @@ static void edit_option(int index)
     buf[OSK_BUF_LEN - 1] = '\0';
 
     get_osk_string(option_options[index].osk_helper, buf, OSK_BUF_LEN);
-    
-
     //parse the result back into the option
     if (index == 4)
         option_options[index].value = strtof(buf, NULL);
@@ -660,7 +656,7 @@ static int read_cart_header(const char *path, char *out, size_t out_size)
 
         strings_seen++;
 
-        if (strings_seen == 1 && buf[s] == 'g' && buf[s + 1] == ' ')
+        if (strings_seen == 1 && buf[s] == 'g' && buf[s + 1] == ' ') //copyright string
             continue;
 
         if (used > 0 && used + 1 < out_size)
@@ -1091,9 +1087,9 @@ int main(int argc, char **argv)
 
     //parse config file, if not found it will be created
     ret = parse_config_file(&config);
-    if(ret == CONFIG_FILE_CREATED)
+    if(ret == -2)
         throw_error(ERROR_TYPE_MENU, MENU_CONFIG_NOT_FOUND, true);
-    else if(ret == CONFIG_CREATE_ERROR)
+    else if(ret == -1)
         throw_error(ERROR_TYPE_MENU, MENU_CONFIG_CREATE_ERROR, false);
     else if(ret < 0)
         throw_error(ERROR_TYPE_MENU, MENU_CONFIG_PARSE_ERROR, true);
@@ -1105,8 +1101,9 @@ int main(int argc, char **argv)
     {
         ioPadGetInfo(&padinfo);
         
-        if(pad_any_pressed(&padinfo, &paddata))
-            play_alert(SOUND_OK);
+        //gets annoying
+        // if(pad_any_pressed(&padinfo, &paddata))
+        //     play_alert(SOUND_OK);
 
         if (padinfo.status[0] && ioPadGetData(0, &paddata) == 0)
         {
@@ -1155,11 +1152,6 @@ int main(int argc, char **argv)
                 {
                     save_config();
                     load_emulator();
-                }
-                //preview overlay
-                else if (PRESSED_NOW(BTN_CROSS) && currentState == STATE_OVERLAY_SECTION)
-                {
-
                 }
                 // launch emulator
                 else if (PRESSED_NOW(BTN_CROSS) && currentState == STATE_LAUNCH_SECTION)
@@ -1239,6 +1231,8 @@ int main(int argc, char **argv)
         tiny3d_Flip();
     }
 
+#ifdef PS3LOADX
     sysProcessExitSpawn2("/dev_hdd0/game/PSL145310/RELOAD.SELF", NULL, NULL, NULL, 0, 1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
+#endif
     return 0;
 }
